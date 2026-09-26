@@ -7,6 +7,7 @@ import { BranchSwitchArgs, EnrollArgs, RepoCreateArgs } from '@musehub/contracts
 import { authOf, makeRequireAuth } from './auth.js';
 import type { BuildApiDeps, ZodApp } from './deps.js';
 import {
+  ActivityListQuery,
   BranchCreateBody,
   CiLogsQuery,
   CiRunBody,
@@ -19,6 +20,8 @@ import {
   IssueCommentBody,
   IssueListQuery,
   IssueOpenBody,
+  NotificationsListQuery,
+  NotificationsMarkReadBody,
   OrgAddMemberBody,
   OrgCreateBody,
   OrgListQuery,
@@ -39,12 +42,15 @@ import {
   RepoNumberParams,
   RepoParams,
   RepoRunParams,
+  RepoWebhookParams,
   SearchCodeQuery,
   SearchIssuesQuery,
   SearchReposQuery,
   TeamAddMemberBody,
   TeamCreateBody,
   TreeReadQuery,
+  WebhookCreateBody,
+  WebhookListQuery,
 } from './http-schemas.js';
 
 const TAGS = ['forge'];
@@ -511,5 +517,60 @@ export function registerRestRoutes(app: ZodApp, deps: BuildApiDeps): void {
         repo: `${request.params.owner}/${request.params.repo}`,
         agent: request.params.agent,
       }),
+  );
+
+  // --- Webhooks, notifications and the activity feed ----------------------
+  app.post(
+    '/v1/repos/:owner/:repo/webhooks',
+    {
+      preHandler: requireAuth,
+      schema: { params: RepoParams, body: WebhookCreateBody, tags: TAGS },
+    },
+    async (request, reply) => {
+      const result = await forge.webhookCreate(authOf(request), {
+        repo: spec(request.params),
+        ...request.body,
+      });
+      reply.code(201);
+      return result;
+    },
+  );
+
+  app.get(
+    '/v1/repos/:owner/:repo/webhooks',
+    {
+      preHandler: requireAuth,
+      schema: { params: RepoParams, querystring: WebhookListQuery, tags: TAGS },
+    },
+    async (request) =>
+      forge.webhookList(authOf(request), { repo: spec(request.params), ...request.query }),
+  );
+
+  app.delete(
+    '/v1/repos/:owner/:repo/webhooks/:id',
+    { preHandler: requireAuth, schema: { params: RepoWebhookParams, tags: TAGS } },
+    async (request) =>
+      forge.webhookDelete(authOf(request), {
+        repo: `${request.params.owner}/${request.params.repo}`,
+        id: request.params.id,
+      }),
+  );
+
+  app.get(
+    '/v1/notifications',
+    { preHandler: requireAuth, schema: { querystring: NotificationsListQuery, tags: TAGS } },
+    async (request) => forge.notificationsList(authOf(request), request.query),
+  );
+
+  app.post(
+    '/v1/notifications/mark-read',
+    { preHandler: requireAuth, schema: { body: NotificationsMarkReadBody, tags: TAGS } },
+    async (request) => forge.notificationsMarkRead(authOf(request), request.body),
+  );
+
+  app.get(
+    '/v1/activity',
+    { preHandler: requireAuth, schema: { querystring: ActivityListQuery, tags: TAGS } },
+    async (request) => forge.activityList(authOf(request), request.query),
   );
 }

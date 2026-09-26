@@ -132,3 +132,18 @@ export const RepoAddCollaboratorBody = RepoAddCollaboratorArgs.omit({ repo: true
 export const RepoListCollaboratorsQuery = RepoListCollaboratorsArgs.omit({ repo: true }).extend({
   limit: limitQuery,
 });
+
+// --- Webhooks, notifications and the activity feed -------------------------
+export const RepoWebhookParams = z.object({
+  owner: Handle,
+  repo: RepoName,
+  id: z.string().min(1),
+});
+export const WebhookCreateBody = WebhookCreateArgs.omit({ repo: true });
+export const WebhookListQuery = WebhookListArgs.omit({ repo: true }).extend({ limit: limitQuery });
+export const NotificationsListQuery = NotificationsListArgs.extend({
+  unread: boolQuery(false),
+  limit: limitQuery,
+});
+export const NotificationsMarkReadBody = NotificationsMarkReadArgs;
+export const ActivityListQuery = ActivityListArgs.extend({ limit: limitQuery });
