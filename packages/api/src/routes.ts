@@ -33,6 +33,8 @@ import {
   PrMergeBody,
   PrOpenBody,
   PrReviewBody,
+  ReleaseCreateBody,
+  ReleaseListQuery,
   RepoAddCollaboratorBody,
   RepoCollabParams,
   RepoDeleteBody,
@@ -42,6 +44,7 @@ import {
   RepoNumberParams,
   RepoParams,
   RepoRunParams,
+  RepoTagParams,
   RepoWebhookParams,
   SearchCodeQuery,
   SearchIssuesQuery,
@@ -572,5 +575,52 @@ export function registerRestRoutes(app: ZodApp, deps: BuildApiDeps): void {
     '/v1/activity',
     { preHandler: requireAuth, schema: { querystring: ActivityListQuery, tags: TAGS } },
     async (request) => forge.activityList(authOf(request), request.query),
+  );
+
+  // --- Releases -----------------------------------------------------------
+  app.post(
+    '/v1/repos/:owner/:repo/releases',
+    {
+      preHandler: requireAuth,
+      schema: { params: RepoParams, body: ReleaseCreateBody, tags: TAGS },
+    },
+    async (request, reply) => {
+      const result = await forge.releaseCreate(authOf(request), {
+        repo: spec(request.params),
+        ...request.body,
+      });
+      reply.code(201);
+      return result;
+    },
+  );
+
+  app.get(
+    '/v1/repos/:owner/:repo/releases',
+    {
+      preHandler: requireAuth,
+      schema: { params: RepoParams, querystring: ReleaseListQuery, tags: TAGS },
+    },
+    async (request) =>
+      forge.releaseList(authOf(request), { repo: spec(request.params), ...request.query }),
+  );
+
+  app.get(
+    '/v1/repos/:owner/:repo/releases/:tag',
+    { preHandler: requireAuth, schema: { params: RepoTagParams, tags: TAGS } },
+    async (request) =>
+      forge.releaseGet(authOf(request), {
+        repo: `${request.params.owner}/${request.params.repo}`,
+        tag: request.params.tag,
+      }),
+  );
+
+  app.delete(
+    '/v1/repos/:owner/:repo/releases/:tag',
+    { preHandler: requireAuth, schema: { params: RepoTagParams, tags: TAGS } },
+    async (request) =>
+      forge.releaseDelete(authOf(request), {
+        repo: `${request.params.owner}/${request.params.repo}`,
+        tag: request.params.tag,
+      }),
   );
 }

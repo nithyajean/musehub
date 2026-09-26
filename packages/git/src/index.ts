@@ -20,6 +20,7 @@ export {
   assertBranchName,
   assertCommittish,
   assertRepoRef,
+  assertTagName,
   ownerDir,
   repoDir,
 } from './paths.js';

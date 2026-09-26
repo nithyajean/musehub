@@ -349,6 +349,38 @@ function makeForge(): { forge: ForgeService; spy: Spy } {
     async activityList() {
       return page([]);
     },
+    async releaseCreate() {
+      return {
+        repo: 'checkout-bot/checkout',
+        tag: 'v1.0.0',
+        name: 'v1.0.0',
+        body: null,
+        target_sha: SHA,
+        prerelease: false,
+        draft: false,
+        author: 'checkout-bot',
+        created_at: TS,
+      };
+    },
+    async releaseList() {
+      return page([]);
+    },
+    async releaseGet() {
+      return {
+        repo: 'checkout-bot/checkout',
+        tag: 'v1.0.0',
+        name: 'v1.0.0',
+        body: null,
+        target_sha: SHA,
+        prerelease: false,
+        draft: false,
+        author: 'checkout-bot',
+        created_at: TS,
+      };
+    },
+    async releaseDelete() {
+      return { removed: false };
+    },
   };
   return { forge, spy };
 }

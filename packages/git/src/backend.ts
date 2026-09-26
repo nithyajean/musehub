@@ -14,6 +14,7 @@ import {
   ZERO_OID,
   assertBranchName,
   assertCommittish,
+  assertTagName,
   ownerDir,
   repoDir,
 } from './paths.js';
@@ -142,6 +143,15 @@ export function createGitBackend(opts: CreateGitBackendOptions): GitBackend {
     }
     const line = res.stdout.trim().split('\n')[0] ?? '';
     return line.trim();
+  }
+
+  /** The oid refs/tags/<tag> points at (a tag object for annotated, a commit for lightweight), or null. */
+  async function resolveTagRef(gitdir: string, tag: string): Promise<string | null> {
+    try {
+      return await git.resolveRef({ fs, gitdir, ref: `refs/tags/${tag}` });
+    } catch {
+      return null;
+    }
   }
 
   return {
@@ -611,6 +621,76 @@ export function createGitBackend(opts: CreateGitBackendOptions): GitBackend {
         }
       }
       return { mergeSha };
+    },
+
+    async createTag(owner, name, tag, sha, message) {
+      const gitdir = ensureRepo(owner, name);
+      assertTagName(tag);
+      assertCommittish(sha);
+      // Resolve the target to a canonical commit oid so the tag points at a real commit.
+      const oid = await resolveCommitOid(gitdir, sha);
+      if ((await resolveTagRef(gitdir, tag)) !== null) {
+        throw forgeError('validation_failed', `tag already exists: ${tag}`, {
+          details: { tag },
+        });
+      }
+      if (message !== undefined) {
+        // Annotated tag: git writes the tag object and the ref. The tagger identity
+        // comes from the synthetic git identity; the release author is tracked in the
+        // store, not on the tag object.
+        await runGitOrThrow(gitBin, ['tag', '-a', tag, oid, '-m', message], {
+          env: repoEnv(gitdir, authorEnv('musehub', now())),
+        });
+      } else {
+        // Lightweight tag: an all-zero old value makes update-ref create-only.
+        await runGitOrThrow(gitBin, ['update-ref', `refs/tags/${tag}`, oid, ZERO_OID], {
+          env: repoEnv(gitdir),
+        });
+      }
+      return { name: tag, sha: oid };
+    },
+
+    async listTags(owner, name) {
+      const gitdir = ensureRepo(owner, name);
+      const out = await runGitOrThrow(
+        gitBin,
+        ['for-each-ref', '--format=%(refname:short) %(objectname) %(*objectname)', 'refs/tags/'],
+        { env: repoEnv(gitdir) },
+      );
+      const tags: { name: string; sha: string }[] = [];
+      for (const raw of out.split('\n')) {
+        const line = raw.trim();
+        if (line.length === 0) continue;
+        const [tagName, objectName, peeled] = line.split(' ');
+        // The peeled oid is set for annotated tags, empty for lightweight ones.
+        const commitSha = peeled && peeled.length > 0 ? peeled : (objectName ?? '');
+        if (tagName) tags.push({ name: tagName, sha: commitSha });
+      }
+      return tags;
+    },
+
+    async getTagSha(owner, name, tag) {
+      const gitdir = ensureRepo(owner, name);
+      assertTagName(tag);
+      const res = await runGit(
+        gitBin,
+        ['rev-parse', '--verify', '--quiet', `refs/tags/${tag}^{commit}`],
+        { env: repoEnv(gitdir) },
+      );
+      if (res.exitCode !== 0) return null;
+      const oid = res.stdout.trim();
+      return oid.length > 0 ? oid : null;
+    },
+
+    async deleteTag(owner, name, tag) {
+      const gitdir = ensureRepo(owner, name);
+      assertTagName(tag);
+      if ((await resolveTagRef(gitdir, tag)) === null) {
+        return; // idempotent: a missing tag is a no-op
+      }
+      await runGitOrThrow(gitBin, ['update-ref', '-d', `refs/tags/${tag}`], {
+        env: repoEnv(gitdir),
+      });
     },
   };
 }

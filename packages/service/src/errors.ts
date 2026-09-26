@@ -235,3 +235,29 @@ export function eventsUnavailable(): ForgeError {
     next: 'Wire the webhook, delivery and notification stores into the composition root, then retry.',
   });
 }
+
+// --- Releases -------------------------------------------------------------
+
+export function releasesUnavailable(): ForgeError {
+  return new ForgeError('internal_error', 'Releases are not enabled on this server.', {
+    next: 'Wire the release store into the composition root, then retry.',
+  });
+}
+
+// The frozen catalog has no release exists/not-found code, so these resolve to
+// validation_failed (422), the same pattern pr_not_found and issue_not_found use.
+export function releaseExists(fullName: string, tag: string): ForgeError {
+  return validationFailed(
+    `A release for tag '${tag}' already exists in ${fullName}.`,
+    'Delete it with forge.release_delete, or choose another tag.',
+    { repo: fullName, tag },
+  );
+}
+
+export function releaseNotFound(fullName: string, tag: string): ForgeError {
+  return validationFailed(
+    `Release '${tag}' was not found in ${fullName}.`,
+    'Check the tag with forge.release_list.',
+    { repo: fullName, tag },
+  );
+}

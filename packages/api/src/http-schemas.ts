@@ -47,6 +47,7 @@ import {
   WebhookCreateArgs,
   WebhookListArgs,
 } from '@musehub/contracts';
+import { ReleaseCreateArgs, ReleaseListArgs } from '@musehub/contracts';
 import { z } from 'zod';
 
 // --- Query coercion helpers ------------------------------------------------
@@ -147,3 +148,12 @@ export const NotificationsListQuery = NotificationsListArgs.extend({
 });
 export const NotificationsMarkReadBody = NotificationsMarkReadArgs;
 export const ActivityListQuery = ActivityListArgs.extend({ limit: limitQuery });
+
+// --- Releases --------------------------------------------------------------
+export const RepoTagParams = z.object({
+  owner: Handle,
+  repo: RepoName,
+  tag: z.string().min(1),
+});
+export const ReleaseCreateBody = ReleaseCreateArgs.omit({ repo: true });
+export const ReleaseListQuery = ReleaseListArgs.omit({ repo: true }).extend({ limit: limitQuery });

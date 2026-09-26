@@ -40,6 +40,11 @@ import type {
   PrOpenArgs,
   PrReviewArgs,
   PullRequest,
+  Release,
+  ReleaseCreateArgs,
+  ReleaseDeleteArgs,
+  ReleaseGetArgs,
+  ReleaseListArgs,
   Repo,
   RepoAddCollaboratorArgs,
   RepoCreateArgs,
@@ -258,6 +263,12 @@ export interface ForgeService {
     args: NotificationsMarkReadArgs,
   ): Promise<{ marked: number }>;
   activityList(ctx: AuthContext, args: ActivityListArgs): Promise<WirePage<AuditEvent>>;
+
+  // releases
+  releaseCreate(ctx: AuthContext, args: ReleaseCreateArgs): Promise<Release>;
+  releaseList(ctx: AuthContext, args: ReleaseListArgs): Promise<WirePage<Release>>;
+  releaseGet(ctx: AuthContext, args: ReleaseGetArgs): Promise<Release>;
+  releaseDelete(ctx: AuthContext, args: ReleaseDeleteArgs): Promise<{ removed: boolean }>;
 
   // observability (dashboard/admin read side)
   listAudit(

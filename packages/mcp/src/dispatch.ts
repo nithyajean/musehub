@@ -51,6 +51,12 @@ import type {
   WebhookDeleteArgs,
   WebhookListArgs,
 } from '@musehub/contracts';
+import type {
+  ReleaseCreateArgs,
+  ReleaseDeleteArgs,
+  ReleaseGetArgs,
+  ReleaseListArgs,
+} from '@musehub/contracts';
 import type { AuthContext, ForgeService } from '@musehub/core';
 
 /** Resolve an agent identity from the Bearer token. Injected by the composition root. */
@@ -192,6 +198,22 @@ export const TOOL_OPS: Record<ToolName, ToolOp> = {
   'forge.activity_list': {
     auth: true,
     invoke: (f, ctx, a) => f.activityList(ctx!, a as ActivityListArgs),
+  },
+  'forge.release_create': {
+    auth: true,
+    invoke: (f, ctx, a) => f.releaseCreate(ctx!, a as ReleaseCreateArgs),
+  },
+  'forge.release_list': {
+    auth: true,
+    invoke: (f, ctx, a) => f.releaseList(ctx!, a as ReleaseListArgs),
+  },
+  'forge.release_get': {
+    auth: true,
+    invoke: (f, ctx, a) => f.releaseGet(ctx!, a as ReleaseGetArgs),
+  },
+  'forge.release_delete': {
+    auth: true,
+    invoke: (f, ctx, a) => f.releaseDelete(ctx!, a as ReleaseDeleteArgs),
   },
 };
 

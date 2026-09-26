@@ -17,6 +17,10 @@ import {
   OrgRemoveMemberArgs,
   PrMergeArgs,
   PrOpenArgs,
+  ReleaseCreateArgs,
+  ReleaseDeleteArgs,
+  ReleaseGetArgs,
+  ReleaseListArgs,
   RepoAddCollaboratorArgs,
   RepoCreateArgs,
   RepoDeleteArgs,
@@ -785,6 +789,105 @@ describe('repo collaborators', () => {
           bob,
           RepoAddCollaboratorArgs.parse({ repo: 'alice/app', agent: 'bob', permission: 'admin' }),
         ),
+      ),
+    ).toBe('repo_not_found');
+  });
+});
+
+describe('releases', () => {
+  async function repo() {
+    const { ctx } = await enroll(h, svc, 'did:key:zREL', 'alice');
+    await svc.repoCreate(ctx, RepoCreateArgs.parse({ name: 'app' }));
+    return ctx;
+  }
+
+  it('creates a release, tags the target commit, then reads it back', async () => {
+    const ctx = await repo();
+    const head = await h.git.getBranchHead('alice', 'app', 'main');
+    const release = await svc.releaseCreate(
+      ctx,
+      ReleaseCreateArgs.parse({ repo: 'app', tag: 'v1.0.0', name: 'One', body: 'first' }),
+    );
+    expect(release.tag).toBe('v1.0.0');
+    expect(release.name).toBe('One');
+    expect(release.target_sha).toBe(head);
+    expect(release.author).toBe('alice');
+    // A real tag was created at the resolved sha.
+    expect(await h.git.getTagSha('alice', 'app', 'v1.0.0')).toBe(head);
+
+    const got = await svc.releaseGet(ctx, ReleaseGetArgs.parse({ repo: 'app', tag: 'v1.0.0' }));
+    expect(got.target_sha).toBe(head);
+  });
+
+  it('tags an explicit target ref', async () => {
+    const ctx = await repo();
+    await svc.branchCreate(ctx, BranchCreateArgs.parse({ repo: 'app', name: 'feature' }));
+    const commit = await svc.commitCreate(
+      ctx,
+      CommitCreateArgs.parse({
+        repo: 'app',
+        message: 'feature commit',
+        branch: 'feature',
+        changes: [{ path: 'f.ts', content: 'export const f = 1;\n' }],
+      }),
+    );
+    const release = await svc.releaseCreate(
+      ctx,
+      ReleaseCreateArgs.parse({ repo: 'app', tag: 'v2.0.0', target: 'feature' }),
+    );
+    expect(release.target_sha).toBe(commit.commit_sha);
+    // name defaults to the tag when omitted.
+    expect(release.name).toBe('v2.0.0');
+  });
+
+  it('rejects a duplicate tag and an unknown target', async () => {
+    const ctx = await repo();
+    await svc.releaseCreate(ctx, ReleaseCreateArgs.parse({ repo: 'app', tag: 'v1.0.0' }));
+    expect(
+      await codeOf(svc.releaseCreate(ctx, ReleaseCreateArgs.parse({ repo: 'app', tag: 'v1.0.0' }))),
+    ).toBe('validation_failed');
+    expect(
+      await codeOf(
+        svc.releaseCreate(
+          ctx,
+          ReleaseCreateArgs.parse({ repo: 'app', tag: 'v9', target: 'ghost' }),
+        ),
+      ),
+    ).toBe('branch_not_found');
+  });
+
+  it('lists releases newest first and deletes one with its tag', async () => {
+    const ctx = await repo();
+    await svc.releaseCreate(ctx, ReleaseCreateArgs.parse({ repo: 'app', tag: 'v1.0.0' }));
+    await svc.releaseCreate(ctx, ReleaseCreateArgs.parse({ repo: 'app', tag: 'v2.0.0' }));
+    const list = await svc.releaseList(ctx, ReleaseListArgs.parse({ repo: 'app' }));
+    expect(list.items.map((r) => r.tag)).toEqual(['v2.0.0', 'v1.0.0']);
+
+    const del = await svc.releaseDelete(
+      ctx,
+      ReleaseDeleteArgs.parse({ repo: 'app', tag: 'v1.0.0' }),
+    );
+    expect(del.removed).toBe(true);
+    // The git tag is gone too.
+    expect(await h.git.getTagSha('alice', 'app', 'v1.0.0')).toBeNull();
+    // Idempotent second delete.
+    const again = await svc.releaseDelete(
+      ctx,
+      ReleaseDeleteArgs.parse({ repo: 'app', tag: 'v1.0.0' }),
+    );
+    expect(again.removed).toBe(false);
+    expect(
+      await codeOf(svc.releaseGet(ctx, ReleaseGetArgs.parse({ repo: 'app', tag: 'v1.0.0' }))),
+    ).toBe('validation_failed');
+  });
+
+  it('requires write access to create a release', async () => {
+    await repo();
+    const { ctx: mallory } = await enroll(h, svc, 'did:key:zRELX', 'mallory');
+    // alice/app is public by default here? No, default is private; a stranger sees repo_not_found.
+    expect(
+      await codeOf(
+        svc.releaseCreate(mallory, ReleaseCreateArgs.parse({ repo: 'alice/app', tag: 'v1.0.0' })),
       ),
     ).toBe('repo_not_found');
   });

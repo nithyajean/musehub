@@ -14,6 +14,7 @@ import type {
   OrgMemberStore,
   OrgStore,
   PullRequestStore,
+  ReleaseStore,
   ReviewStore,
   SessionStore,
   TeamMemberStore,
@@ -32,6 +33,7 @@ import { makeNotificationStore } from './notifications.js';
 import { makeOrgMemberStore } from './org-members.js';
 import { makeOrgStore } from './orgs.js';
 import { makePullRequestStore } from './pulls.js';
+import { makeReleaseStore } from './releases.js';
 import { makeRepoStore } from './repos.js';
 import { makeReviewStore } from './reviews.js';
 import { makeSessionStore } from './sessions.js';
@@ -63,6 +65,7 @@ export interface Stores {
   webhooks: WebhookStore;
   webhookDeliveries: WebhookDeliveryStore;
   notifications: NotificationStore;
+  releases: ReleaseStore;
 }
 
 export function createStores(db: Db, deps: StoreDeps): Stores {
@@ -85,5 +88,6 @@ export function createStores(db: Db, deps: StoreDeps): Stores {
     webhooks: makeWebhookStore(exec, clock, ids),
     webhookDeliveries: makeWebhookDeliveryStore(exec, clock, ids),
     notifications: makeNotificationStore(exec, clock, ids),
+    releases: makeReleaseStore(exec, clock, ids),
   };
 }

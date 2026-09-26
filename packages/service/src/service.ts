@@ -46,6 +46,11 @@ import type {
   PrOpenArgs,
   PrReviewArgs,
   PullRequest,
+  Release,
+  ReleaseCreateArgs,
+  ReleaseDeleteArgs,
+  ReleaseGetArgs,
+  ReleaseListArgs,
   Repo,
   RepoAddCollaboratorArgs,
   RepoCreateArgs,
@@ -117,6 +122,9 @@ import {
   orgNotFound,
   prExists,
   prNotFound,
+  releaseExists,
+  releaseNotFound,
+  releasesUnavailable,
   repoExists,
   repoNotFound,
   reviewRequired,
@@ -260,6 +268,14 @@ class ForgeServiceImpl implements ForgeService {
       throw eventsUnavailable();
     }
     return this.ports.notifications;
+  }
+
+  /** The release store, or a clear error when the server was built without it. */
+  private requireReleases() {
+    if (!this.ports.releases) {
+      throw releasesUnavailable();
+    }
+    return this.ports.releases;
   }
 
   /** The branch a write targets: explicit arg, else the session working branch, else the repo default. */
@@ -1503,6 +1519,80 @@ class ForgeServiceImpl implements ForgeService {
     }
     const offset = decodeCursor(args.cursor);
     return pageSlice(collected.slice(0, SCAN_CAP), offset, args.limit, exhaustive);
+  }
+
+  // --- releases -----------------------------------------------------------
+
+  async releaseCreate(ctx: AuthContext, args: ReleaseCreateArgs): Promise<Release> {
+    // A release is a write on the repo: it creates a git tag, so it takes write authz.
+    const releases = this.requireReleases();
+    const ref = await loadRepoForWrite(this.ports, ctx, args.repo);
+    const existing = await releases.get(ref.fullName, args.tag);
+    if (existing) {
+      throw releaseExists(ref.fullName, args.tag);
+    }
+    const targetRef = args.target ?? ref.repo.default_branch;
+    const targetSha = await this.resolveSha(ref, targetRef);
+    if (targetSha === null) {
+      throw branchNotFound(ref.fullName, targetRef);
+    }
+    // Tag the resolved commit first, then store the release. createTag rejects a
+    // duplicate tag, so a tag that exists without a release row still fails cleanly.
+    await this.ports.git.createTag(ref.owner, ref.name, args.tag, targetSha, args.message);
+    const release = await releases.create({
+      repo: ref.fullName,
+      tag: args.tag,
+      name: args.name ?? args.tag,
+      body: args.body ?? null,
+      targetSha,
+      prerelease: args.prerelease,
+      draft: args.draft,
+      author: ctx.agent.handle,
+    });
+    await this.audit(ctx.agent.handle, 'release.create', `${ref.fullName}@${args.tag}`, {
+      tag: args.tag,
+      target_sha: targetSha,
+      prerelease: args.prerelease,
+      draft: args.draft,
+    });
+    return release;
+  }
+
+  async releaseList(ctx: AuthContext, args: ReleaseListArgs): Promise<WirePage<Release>> {
+    const releases = this.requireReleases();
+    const ref = await loadRepoForRead(this.ports, ctx, args.repo);
+    const page = await releases.list(ref.fullName, {
+      ...(args.cursor !== undefined ? { cursor: args.cursor } : {}),
+      limit: args.limit,
+    });
+    return toWirePage(page);
+  }
+
+  async releaseGet(ctx: AuthContext, args: ReleaseGetArgs): Promise<Release> {
+    const releases = this.requireReleases();
+    const ref = await loadRepoForRead(this.ports, ctx, args.repo);
+    const release = await releases.get(ref.fullName, args.tag);
+    if (!release) {
+      throw releaseNotFound(ref.fullName, args.tag);
+    }
+    return release;
+  }
+
+  async releaseDelete(ctx: AuthContext, args: ReleaseDeleteArgs): Promise<{ removed: boolean }> {
+    const releases = this.requireReleases();
+    const ref = await loadRepoForWrite(this.ports, ctx, args.repo);
+    const existing = await releases.get(ref.fullName, args.tag);
+    // Idempotent: deleting an absent release is a no-op, so a retry is safe.
+    if (!existing) {
+      return { removed: false };
+    }
+    await releases.delete(ref.fullName, args.tag);
+    // Remove the git tag too. deleteTag is idempotent on a missing tag.
+    await this.ports.git.deleteTag(ref.owner, ref.name, args.tag);
+    await this.audit(ctx.agent.handle, 'release.delete', `${ref.fullName}@${args.tag}`, {
+      tag: args.tag,
+    });
+    return { removed: true };
   }
 
   // --- observability ------------------------------------------------------

@@ -56,8 +56,8 @@ function makeDeps(
 describe('metaFunctionTools', () => {
   const tools = metaFunctionTools();
 
-  it('emits all 46 forge tools', () => {
-    expect(tools).toHaveLength(46);
+  it('emits all 50 forge tools', () => {
+    expect(tools).toHaveLength(50);
   });
 
   it('every name is a legal Meta function name with exactly one dot', () => {
@@ -84,7 +84,7 @@ describe('metaFunctionTools', () => {
 });
 
 describe('tool -> method map', () => {
-  it('covers exactly the 46 tool names', () => {
+  it('covers exactly the 50 tool names', () => {
     expect(Object.keys(TOOL_OPS).sort()).toEqual(TOOL_NAMES);
   });
 
@@ -162,12 +162,12 @@ describe('runTool dispatch', () => {
 });
 
 describe('buildMcpServer and helpers', () => {
-  it('builds a Server and 46 MCP tools with object input schemas', () => {
+  it('builds a Server and 50 MCP tools with object input schemas', () => {
     const server = buildMcpServer(makeDeps(makeForge()));
     expect(server).toBeInstanceOf(Server);
 
     const tools = TOOLS.map(toMcpTool);
-    expect(tools).toHaveLength(46);
+    expect(tools).toHaveLength(50);
     for (const tool of tools) {
       expect(tool.inputSchema.type).toBe('object');
     }

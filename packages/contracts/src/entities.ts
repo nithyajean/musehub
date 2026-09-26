@@ -293,3 +293,25 @@ export const Notification = z.object({
   created_at: Timestamp,
 });
 export type Notification = z.infer<typeof Notification>;
+
+// --- Releases --------------------------------------------------------------
+
+/**
+ * A named release backed by a real git tag. release_create resolves a target ref
+ * to a commit sha, creates the tag under refs/tags, then stores this record. The
+ * tag is the identity of a release within a repo, so (repo, tag) is unique.
+ * target_sha is the canonical commit the tag resolves to. prerelease and draft are
+ * flags the caller sets; the forge does not gate on them, it records them.
+ */
+export const Release = z.object({
+  repo: z.string(),
+  tag: z.string(),
+  name: z.string(),
+  body: z.string().nullable(),
+  target_sha: Sha,
+  prerelease: z.boolean(),
+  draft: z.boolean(),
+  author: Handle,
+  created_at: Timestamp,
+});
+export type Release = z.infer<typeof Release>;

@@ -34,6 +34,98 @@ const SHA_B = 'b'.repeat(40);
 
 // PLACEHOLDER_APPEND
 
+describe('ReleaseStore', () => {
+  it('creates, reads by tag, lists newest first, paginates and deletes', async () => {
+    const repo = 'alice/app';
+    await stores.releases.create({
+      repo,
+      tag: 'v1.0.0',
+      name: 'One',
+      body: 'first cut',
+      targetSha: SHA_A,
+      prerelease: false,
+      draft: false,
+      author: 'alice',
+    });
+    await stores.releases.create({
+      repo,
+      tag: 'v1.1.0',
+      name: 'One One',
+      body: null,
+      targetSha: SHA_B,
+      prerelease: true,
+      draft: false,
+      author: 'alice',
+    });
+    await stores.releases.create({
+      repo,
+      tag: 'v2.0.0',
+      name: 'Two',
+      body: 'big one',
+      targetSha: SHA_A,
+      prerelease: false,
+      draft: true,
+      author: 'alice',
+    });
+
+    const one = await stores.releases.get(repo, 'v1.0.0');
+    expect(one?.name).toBe('One');
+    expect(one?.target_sha).toBe(SHA_A);
+    expect(one?.body).toBe('first cut');
+    expect(one?.prerelease).toBe(false);
+    const oneOne = await stores.releases.get(repo, 'v1.1.0');
+    expect(oneOne?.prerelease).toBe(true);
+    expect(oneOne?.body).toBeNull();
+    expect(await stores.releases.get(repo, 'ghost')).toBeNull();
+
+    // Same fixed clock, so ties on created_at break on tag descending.
+    const all = await stores.releases.list(repo, { limit: 50 });
+    expect(all.total).toBe(3);
+    expect(all.items.map((r) => r.tag)).toEqual(['v2.0.0', 'v1.1.0', 'v1.0.0']);
+
+    const first = await stores.releases.list(repo, { limit: 2 });
+    expect(first.items.map((r) => r.tag)).toEqual(['v2.0.0', 'v1.1.0']);
+    expect(first.nextCursor).not.toBeNull();
+    const second = await stores.releases.list(repo, {
+      limit: 2,
+      cursor: first.nextCursor ?? undefined,
+    });
+    expect(second.items.map((r) => r.tag)).toEqual(['v1.0.0']);
+    expect(second.nextCursor).toBeNull();
+
+    expect(await stores.releases.delete(repo, 'v1.1.0')).toBe(true);
+    expect(await stores.releases.delete(repo, 'v1.1.0')).toBe(false);
+    expect(await stores.releases.get(repo, 'v1.1.0')).toBeNull();
+    expect((await stores.releases.list(repo, { limit: 50 })).total).toBe(2);
+  });
+
+  it('scopes releases per repo', async () => {
+    await stores.releases.create({
+      repo: 'alice/app',
+      tag: 'v1.0.0',
+      name: 'app',
+      body: null,
+      targetSha: SHA_A,
+      prerelease: false,
+      draft: false,
+      author: 'alice',
+    });
+    await stores.releases.create({
+      repo: 'bob/lib',
+      tag: 'v1.0.0',
+      name: 'lib',
+      body: null,
+      targetSha: SHA_B,
+      prerelease: false,
+      draft: false,
+      author: 'bob',
+    });
+    const app = await stores.releases.list('alice/app', { limit: 50 });
+    expect(app.items.map((r) => r.name)).toEqual(['app']);
+    expect((await stores.releases.get('bob/lib', 'v1.0.0'))?.name).toBe('lib');
+  });
+});
+
 describe('OrgStore', () => {
   it('creates, reads by handle, reports taken, and lists by member', async () => {
     const org = await stores.orgs.create({ handle: 'acme', displayName: 'Acme Co' });

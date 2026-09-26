@@ -20,6 +20,7 @@ import type {
   OrgRole,
   PrState,
   PullRequest,
+  Release,
   RepoPermission,
   Review,
   Team,
@@ -44,6 +45,7 @@ import type {
   NewAgent,
   NewDelivery,
   NewOrg,
+  NewRelease,
   NewRepo,
   NewTeam,
   NewWebhook,
@@ -53,6 +55,7 @@ import type {
   Page,
   Ports,
   PullRequestStore,
+  ReleaseStore,
   RepoQuery,
   Repo_,
   ReviewStore,
@@ -500,6 +503,7 @@ interface RepoState {
   branches: Map<string, string>;
   trees: Map<string, Map<string, string>>;
   parents: Map<string, string[]>;
+  tags: Map<string, string>;
 }
 
 function treesEqual(a: Map<string, string>, b: Map<string, string>): boolean {
@@ -559,6 +563,7 @@ export class FakeGit implements GitBackend {
       branches: new Map(),
       trees: new Map(),
       parents: new Map(),
+      tags: new Map(),
     });
   }
   async deleteRepo(owner: string, name: string): Promise<void> {
@@ -809,6 +814,35 @@ export class FakeGit implements GitBackend {
     state.branches.set(input.base, mergeSha);
     return { mergeSha };
   }
+
+  async createTag(
+    owner: string,
+    name: string,
+    tag: string,
+    sha: string,
+    _message?: string,
+  ): Promise<{ name: string; sha: string }> {
+    const state = this.state(owner, name);
+    if (state.tags.has(tag)) {
+      throw new Error(`tag already exists: ${tag}`);
+    }
+    const target = this.resolveRef(state, sha) ?? sha;
+    state.tags.set(tag, target);
+    return { name: tag, sha: target };
+  }
+
+  async listTags(owner: string, name: string): Promise<{ name: string; sha: string }[]> {
+    const state = this.state(owner, name);
+    return [...state.tags.entries()].map(([tagName, sha]) => ({ name: tagName, sha }));
+  }
+
+  async getTagSha(owner: string, name: string, tag: string): Promise<string | null> {
+    return this.state(owner, name).tags.get(tag) ?? null;
+  }
+
+  async deleteTag(owner: string, name: string, tag: string): Promise<void> {
+    this.state(owner, name).tags.delete(tag);
+  }
 }
 
 export class FakeIdentity implements IdentityService {
@@ -1026,6 +1060,43 @@ export class FakeCollaborators implements CollaboratorStore {
   }
 }
 
+export class FakeReleases implements ReleaseStore {
+  private rows: Release[] = [];
+
+  async create(r: NewRelease): Promise<Release> {
+    const release: Release = {
+      repo: r.repo,
+      tag: r.tag,
+      name: r.name,
+      body: r.body,
+      target_sha: r.targetSha,
+      prerelease: r.prerelease,
+      draft: r.draft,
+      author: r.author,
+      created_at: NOW,
+    };
+    this.rows.push(release);
+    return { ...release };
+  }
+  async get(repo: string, tag: string): Promise<Release | null> {
+    const found = this.rows.find((r) => r.repo === repo && r.tag === tag);
+    return found ? { ...found } : null;
+  }
+  async list(repo: string, q: { cursor?: string; limit: number }): Promise<Page<Release>> {
+    // Newest first, ties on the fixed clock broken by tag descending (matches the store).
+    const mine = this.rows
+      .filter((r) => r.repo === repo)
+      .sort((a, b) => (a.tag < b.tag ? 1 : a.tag > b.tag ? -1 : 0))
+      .map((r) => ({ ...r }));
+    return paginate(mine, q.cursor, q.limit);
+  }
+  async delete(repo: string, tag: string): Promise<boolean> {
+    const before = this.rows.length;
+    this.rows = this.rows.filter((r) => !(r.repo === repo && r.tag === tag));
+    return this.rows.length < before;
+  }
+}
+
 export class FakeWebhooks implements WebhookStore {
   private rows: Webhook[] = [];
   private seq = 0;
@@ -1197,6 +1268,7 @@ export interface Harness {
   webhooks: FakeWebhooks;
   webhookDeliveries: FakeWebhookDeliveries;
   notifications: FakeNotifications;
+  releases: FakeReleases;
   webhookSender: FakeWebhookSender;
   allow: Set<string>;
 }
@@ -1226,6 +1298,7 @@ export function buildHarness(): Harness {
     webhooks: new FakeWebhooks(),
     webhookDeliveries: new FakeWebhookDeliveries(),
     notifications: new FakeNotifications(),
+    releases: new FakeReleases(),
     webhookSender: new FakeWebhookSender(),
   };
   const ports: Ports = {
@@ -1251,6 +1324,7 @@ export function buildHarness(): Harness {
     webhooks: parts.webhooks,
     webhookDeliveries: parts.webhookDeliveries,
     notifications: parts.notifications,
+    releases: parts.releases,
     webhookSender: parts.webhookSender,
     config: { gitBaseUrl: 'https://git.test', apiBaseUrl: 'https://api.test/v1' },
   };

@@ -56,23 +56,36 @@ function hasRefSpecialByte(s: string): boolean {
  * passed as argv arrays, so this blocks ref-path abuse, not shell injection
  * (the argv arrays already prevent that).
  */
+function refNameInvalid(ref: string): boolean {
+  return (
+    ref.length === 0 ||
+    ref.length > 255 ||
+    ref === '@' ||
+    ref.startsWith('.') ||
+    ref.startsWith('/') ||
+    ref.endsWith('/') ||
+    ref.endsWith('.lock') ||
+    ref.includes('..') ||
+    ref.includes('//') ||
+    ref.includes('@{') ||
+    ref.includes('/.') ||
+    hasRefSpecialByte(ref)
+  );
+}
+
 export function assertBranchName(branch: string): void {
-  const bad =
-    branch.length === 0 ||
-    branch.length > 255 ||
-    branch === '@' ||
-    branch.startsWith('.') ||
-    branch.startsWith('/') ||
-    branch.endsWith('/') ||
-    branch.endsWith('.lock') ||
-    branch.includes('..') ||
-    branch.includes('//') ||
-    branch.includes('@{') ||
-    branch.includes('/.') ||
-    hasRefSpecialByte(branch);
-  if (bad) {
+  if (refNameInvalid(branch)) {
     throw forgeError('validation_failed', `invalid branch name: ${branch}`, {
       details: { field: 'branch' },
+    });
+  }
+}
+
+/** A tag name safe under refs/tags/. Same ref-format rules as a branch name. */
+export function assertTagName(tag: string): void {
+  if (refNameInvalid(tag)) {
+    throw forgeError('validation_failed', `invalid tag name: ${tag}`, {
+      details: { field: 'tag' },
     });
   }
 }

@@ -302,4 +302,22 @@ export const TABLES: TableSpec[] = [
     ],
     indexes: [{ name: 'notifications_recipient_idx', columns: ['recipient', 'seq'] }],
   },
+  {
+    // tag is the identity of a release within a repo, so (repo, tag) is the key,
+    // matching the composite-key style of pull_requests and issues.
+    name: 'releases',
+    columns: [
+      { name: 'repo', kind: 'text', notNull: true },
+      { name: 'tag', kind: 'text', notNull: true },
+      { name: 'name', kind: 'text', notNull: true, default: "''" },
+      { name: 'body', kind: 'text' },
+      { name: 'target_sha', kind: 'text', notNull: true },
+      { name: 'prerelease', kind: 'bool', notNull: true, default: '0' },
+      { name: 'draft', kind: 'bool', notNull: true, default: '0' },
+      { name: 'author', kind: 'text', notNull: true },
+      { name: 'created_at', kind: 'ts', notNull: true },
+    ],
+    primaryKey: ['repo', 'tag'],
+    indexes: [{ name: 'releases_repo_created_idx', columns: ['repo', 'created_at', 'tag'] }],
+  },
 ];

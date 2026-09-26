@@ -280,6 +280,51 @@ describe('@musehub/git', () => {
     });
   });
 
+  it('creates a lightweight tag and reads it back through getTagSha and listTags', async () => {
+    const created = await backend.createTag('alice', 'proj', 'v1.0.0', c1Sha);
+    expect(created.name).toBe('v1.0.0');
+    expect(created.sha).toBe(c1Sha);
+    expect(await backend.getTagSha('alice', 'proj', 'v1.0.0')).toBe(c1Sha);
+    const tags = await backend.listTags('alice', 'proj');
+    expect(tags.find((t) => t.name === 'v1.0.0')?.sha).toBe(c1Sha);
+  });
+
+  it('creates an annotated tag that peels to the target commit', async () => {
+    const created = await backend.createTag('alice', 'proj', 'v2.0.0', c2Sha, 'release two');
+    expect(created.sha).toBe(c2Sha);
+    // The tag ref points at a tag object, but getTagSha and listTags peel to the commit.
+    expect(await backend.getTagSha('alice', 'proj', 'v2.0.0')).toBe(c2Sha);
+    const tags = await backend.listTags('alice', 'proj');
+    expect(tags.find((t) => t.name === 'v2.0.0')?.sha).toBe(c2Sha);
+  });
+
+  it('resolves a branch name to its tip when tagging', async () => {
+    await backend.createTag('alice', 'proj', 'from-main', 'main');
+    expect(await backend.getTagSha('alice', 'proj', 'from-main')).toBe(c1Sha);
+  });
+
+  it('refuses a duplicate tag and reports null for a missing one', async () => {
+    await backend.createTag('alice', 'proj', 'v3.0.0', c1Sha);
+    await expect(backend.createTag('alice', 'proj', 'v3.0.0', c2Sha)).rejects.toMatchObject({
+      code: 'validation_failed',
+    });
+    expect(await backend.getTagSha('alice', 'proj', 'nope')).toBeNull();
+  });
+
+  it('deletes a tag and is idempotent on a missing one', async () => {
+    await backend.createTag('alice', 'proj', 'v4.0.0', c1Sha);
+    await backend.deleteTag('alice', 'proj', 'v4.0.0');
+    expect(await backend.getTagSha('alice', 'proj', 'v4.0.0')).toBeNull();
+    // A second delete does not throw.
+    await backend.deleteTag('alice', 'proj', 'v4.0.0');
+  });
+
+  it('rejects an invalid tag name', async () => {
+    await expect(backend.createTag('alice', 'proj', '../evil', c1Sha)).rejects.toMatchObject({
+      code: 'validation_failed',
+    });
+  });
+
   it('installs an executable pre-receive gate hook', async () => {
     const hook = join(repoDir(root, 'alice', 'proj'), 'hooks', 'pre-receive');
     const info = await stat(hook);

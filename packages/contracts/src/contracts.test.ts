@@ -10,8 +10,8 @@ import {
 } from './index.js';
 
 describe('tool catalog', () => {
-  it('has 46 tools', () => {
-    expect(TOOLS.length).toBe(46);
+  it('has 50 tools', () => {
+    expect(TOOLS.length).toBe(50);
   });
 
   it('every name is forge.<action> with exactly one dot and valid characters', () => {

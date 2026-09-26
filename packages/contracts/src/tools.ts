@@ -485,6 +485,47 @@ export const ActivityListArgs = z
   .strict();
 export type ActivityListArgs = z.infer<typeof ActivityListArgs>;
 
+// --- Releases -------------------------------------------------------------
+
+export const ReleaseCreateArgs = z
+  .object({
+    repo: RepoSpec,
+    tag: z.string().describe('Git tag name to create, for example v1.2.0.'),
+    target: z
+      .string()
+      .optional()
+      .describe('Ref (branch or SHA) the tag points at. Defaults to the repo default branch.'),
+    name: z.string().optional().describe('Release title. Defaults to the tag name.'),
+    body: z.string().optional().describe('Release notes.'),
+    message: z
+      .string()
+      .optional()
+      .describe('Annotation for the git tag. When omitted a lightweight tag is created.'),
+    prerelease: z.boolean().default(false),
+    draft: z.boolean().default(false),
+  })
+  .strict();
+export type ReleaseCreateArgs = z.infer<typeof ReleaseCreateArgs>;
+
+export const ReleaseListArgs = z
+  .object({
+    repo: RepoSpec,
+    cursor: Cursor.optional(),
+    limit: z.number().int().min(1).max(100).default(30),
+  })
+  .strict();
+export type ReleaseListArgs = z.infer<typeof ReleaseListArgs>;
+
+export const ReleaseGetArgs = z
+  .object({ repo: RepoSpec, tag: z.string().describe('The tag naming the release.') })
+  .strict();
+export type ReleaseGetArgs = z.infer<typeof ReleaseGetArgs>;
+
+export const ReleaseDeleteArgs = z
+  .object({ repo: RepoSpec, tag: z.string().describe('The tag naming the release to delete.') })
+  .strict();
+export type ReleaseDeleteArgs = z.infer<typeof ReleaseDeleteArgs>;
+
 // --- Registry -------------------------------------------------------------
 
 /** One agent-facing tool: a stable name, a model-read description, its arg schema. */
@@ -716,6 +757,27 @@ export const TOOLS = [
     name: 'forge.activity_list',
     description: 'Read the activity feed: audit events for one repo or the whole forge.',
     schema: ActivityListArgs,
+  },
+  {
+    name: 'forge.release_create',
+    description:
+      'Create a release: tag a target ref in git, then store the release notes and flags.',
+    schema: ReleaseCreateArgs,
+  },
+  {
+    name: 'forge.release_list',
+    description: 'List a repo releases, newest first.',
+    schema: ReleaseListArgs,
+  },
+  {
+    name: 'forge.release_get',
+    description: 'Get one release by its tag.',
+    schema: ReleaseGetArgs,
+  },
+  {
+    name: 'forge.release_delete',
+    description: 'Delete a release by its tag and remove the git tag.',
+    schema: ReleaseDeleteArgs,
   },
 ] as const satisfies readonly ToolDef[];
 

@@ -16,6 +16,7 @@ import type {
   OrgRole,
   PrState,
   PullRequest,
+  Release,
   Repo,
   RepoPermission,
   Review,
@@ -239,6 +240,28 @@ export interface CollaboratorStore {
   listByRepo(repo: string, q: { cursor?: string; limit: number }): Promise<Page<Collaborator>>;
 }
 
+// --- Releases -------------------------------------------------------------
+
+export interface NewRelease {
+  repo: string;
+  tag: string;
+  name: string;
+  body: string | null;
+  targetSha: string;
+  prerelease: boolean;
+  draft: boolean;
+  author: string;
+}
+
+export interface ReleaseStore {
+  /** Store a release. (repo, tag) is unique, so a duplicate tag is rejected upstream. */
+  create(r: NewRelease): Promise<Release>;
+  get(repo: string, tag: string): Promise<Release | null>;
+  /** Releases in a repo, newest first. */
+  list(repo: string, q: { cursor?: string; limit: number }): Promise<Page<Release>>;
+  delete(repo: string, tag: string): Promise<boolean>;
+}
+
 // --- Events layer: webhooks, deliveries, notifications --------------------
 
 /**
@@ -392,6 +415,25 @@ export interface GitBackend {
     message: string;
     author: string;
   }): Promise<{ mergeSha: string }>;
+  /**
+   * Create a tag under refs/tags pointing at the commit `sha` resolves to. A
+   * `message` makes it an annotated tag, otherwise a lightweight one. Returns the
+   * tag name and the canonical commit sha it resolves to. Rejects a tag that
+   * already exists.
+   */
+  createTag(
+    owner: string,
+    name: string,
+    tag: string,
+    sha: string,
+    message?: string,
+  ): Promise<{ name: string; sha: string }>;
+  /** Every tag in the repo with the commit sha it resolves to (annotated tags peeled). */
+  listTags(owner: string, name: string): Promise<{ name: string; sha: string }[]>;
+  /** The commit sha a tag resolves to, or null when the tag does not exist. */
+  getTagSha(owner: string, name: string, tag: string): Promise<string | null>;
+  /** Remove a tag. A missing tag is a no-op. */
+  deleteTag(owner: string, name: string, tag: string): Promise<void>;
 }
 
 // --- Identity gate --------------------------------------------------------
@@ -458,6 +500,10 @@ export interface Ports {
   teams?: TeamStore;
   teamMembers?: TeamMemberStore;
   collaborators?: CollaboratorStore;
+  // Releases are optional the same way: a composition that predates releases keeps
+  // working (the release tools report releases_unavailable). Tag support lives on the
+  // always-present git backend, so the store is the only thing this gates.
+  releases?: ReleaseStore;
   // Events layer stores are optional the same way: a composition that predates the
   // events layer keeps working (no events fire, and the webhook/notification tools
   // report events_unavailable). The activity feed reads the always-present audit log,
