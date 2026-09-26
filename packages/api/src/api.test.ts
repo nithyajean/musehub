@@ -128,7 +128,7 @@ interface Spy {
   issueOpen?: { ctx: AuthContext; args: IssueOpenArgs };
 }
 
-const page = <T>(items: T[]) => ({ items, nextCursor: null });
+const page = <T>(items: T[]) => ({ items, next_cursor: null });
 
 /** A fake ForgeService: canned values, one thrown ForgeError and a few recorded calls. */
 function makeForge(): { forge: ForgeService; spy: Spy } {

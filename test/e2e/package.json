@@ -1,0 +1,17 @@
+{
+  "name": "@musehub/e2e",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "e2e": "vitest run"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.4",
+    "@musehub/contracts": "workspace:*",
+    "@musehub/core": "workspace:*",
+    "@musehub/server": "workspace:*",
+    "execa": "^9.5.1"
+  }
+}

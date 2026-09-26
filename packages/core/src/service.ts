@@ -40,7 +40,15 @@ import type {
   TreeEntry,
   TreeReadArgs,
 } from '@musehub/contracts';
-import type { Page } from './ports.js';
+/** The agent-facing paginated wire shape. Snake_case `next_cursor` per R6, so
+ * the REST API and the MCP server (which forward the service result verbatim)
+ * expose one consistent shape. The service maps the store's internal Page<T>
+ * (camelCase nextCursor) to this at the boundary. */
+export interface WirePage<T> {
+  items: T[];
+  next_cursor: string | null;
+  total?: number;
+}
 
 /** The authenticated caller, resolved from the Bearer token before any operation. */
 export interface AuthContext {
@@ -145,7 +153,7 @@ export interface ForgeService {
 
   // repositories
   repoCreate(ctx: AuthContext, args: RepoCreateArgs): Promise<Repo & { unchanged?: boolean }>;
-  repoList(ctx: AuthContext, args: RepoListArgs): Promise<Page<Repo>>;
+  repoList(ctx: AuthContext, args: RepoListArgs): Promise<WirePage<Repo>>;
   repoGet(ctx: AuthContext, args: RepoGetArgs): Promise<RepoDetail>;
   repoDelete(ctx: AuthContext, args: RepoDeleteArgs): Promise<{ unchanged: boolean }>;
 
@@ -160,7 +168,7 @@ export interface ForgeService {
 
   // pull requests
   prOpen(ctx: AuthContext, args: PrOpenArgs): Promise<PullRequest>;
-  prList(ctx: AuthContext, args: PrListArgs): Promise<Page<PullRequest>>;
+  prList(ctx: AuthContext, args: PrListArgs): Promise<WirePage<PullRequest>>;
   prGet(ctx: AuthContext, args: PrGetArgs): Promise<PrDetail>;
   prComment(ctx: AuthContext, args: PrCommentArgs): Promise<{ ok: true }>;
   prReview(ctx: AuthContext, args: PrReviewArgs): Promise<Review>;
@@ -168,7 +176,7 @@ export interface ForgeService {
 
   // issues
   issueOpen(ctx: AuthContext, args: IssueOpenArgs): Promise<Issue>;
-  issueList(ctx: AuthContext, args: IssueListArgs): Promise<Page<Issue>>;
+  issueList(ctx: AuthContext, args: IssueListArgs): Promise<WirePage<Issue>>;
   issueComment(ctx: AuthContext, args: IssueCommentArgs): Promise<{ ok: true }>;
   issueClose(ctx: AuthContext, args: IssueCloseArgs): Promise<{ unchanged: boolean }>;
   issueReopen(ctx: AuthContext, args: IssueReopenArgs): Promise<{ unchanged: boolean }>;
@@ -188,14 +196,14 @@ export interface ForgeService {
   }>;
 
   // search
-  searchRepos(ctx: AuthContext, args: SearchReposArgs): Promise<Page<Repo>>;
-  searchCode(ctx: AuthContext, args: SearchCodeArgs): Promise<Page<CodeHit>>;
-  searchIssues(ctx: AuthContext, args: SearchIssuesArgs): Promise<Page<IssueHit>>;
+  searchRepos(ctx: AuthContext, args: SearchReposArgs): Promise<WirePage<Repo>>;
+  searchCode(ctx: AuthContext, args: SearchCodeArgs): Promise<WirePage<CodeHit>>;
+  searchIssues(ctx: AuthContext, args: SearchIssuesArgs): Promise<WirePage<IssueHit>>;
 
   // observability (dashboard/admin read side)
   listAudit(
     ctx: AuthContext,
     q: { actor?: string; cursor?: string; limit: number },
-  ): Promise<Page<AuditEvent>>;
+  ): Promise<WirePage<AuditEvent>>;
   listBranches(ctx: AuthContext, repo: string): Promise<Branch[]>;
 }
