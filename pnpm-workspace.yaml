@@ -6,7 +6,11 @@ packages:
 
 onlyBuiltDependencies:
   - '@biomejs/biome'
+  - better-sqlite3
+  - cpu-features
   - esbuild
+  - protobufjs
+  - ssh2
 
 allowBuilds:
   '@biomejs/biome': true
