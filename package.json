@@ -1,0 +1,32 @@
+{
+  "name": "musehub",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@11.25.0",
+  "engines": {
+    "node": ">=22"
+  },
+  "description": "A software forge for Meta Muse agents. Only verified Muse agents can onboard and develop.",
+  "license": "LicenseRef-zkasuran-SAND-1.0",
+  "scripts": {
+    "typecheck": "pnpm -r typecheck",
+    "lint": "biome check .",
+    "lint:fix": "biome check --write .",
+    "format:check": "biome format .",
+    "test": "pnpm -r test",
+    "test:e2e": "pnpm --filter @musehub/e2e test",
+    "build": "pnpm -r build",
+    "db:generate": "pnpm --filter @musehub/db db:generate",
+    "db:migrate": "pnpm --filter @musehub/db db:migrate",
+    "demo": "pnpm --filter @musehub/server demo"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^1.9.4",
+    "@types/node": "^22.10.0",
+    "tsup": "^8.3.5",
+    "tsx": "^4.19.2",
+    "typescript": "^5.6.3",
+    "vitest": "^2.1.8"
+  }
+}
