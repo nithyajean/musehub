@@ -1,0 +1,47 @@
+# Local MuseHub stack: the forge server on Postgres. Bring your own secrets.
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: musehub
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-musehub}
+      POSTGRES_DB: musehub
+    volumes:
+      - musehub-pg:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U musehub']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  server:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      MUSEHUB_HOST: 0.0.0.0
+      PORT: 7700
+      MUSEHUB_DB_URL: postgres://musehub:${POSTGRES_PASSWORD:-musehub}@db:5432/musehub
+      MUSEHUB_GIT_ROOT: /data/git
+      MUSEHUB_DATA_DIR: /data
+      # Set a stable secret so tokens survive a restart. Generate one, do not commit it.
+      MUSEHUB_TOKEN_SECRET: ${MUSEHUB_TOKEN_SECRET:-}
+      # Comma-separated did:key values admitted at boot. Agents can be admitted at runtime too.
+      MUSEHUB_ALLOWLIST: ${MUSEHUB_ALLOWLIST:-}
+      # CI in real containers. Requires the docker socket mount below. Leave unset for the stub runner.
+      MUSEHUB_CI_DOCKER: ${MUSEHUB_CI_DOCKER:-}
+    ports:
+      - '7700:7700'
+    volumes:
+      - musehub-git:/data
+      # WARNING: mounting the docker socket is root-equivalent on the host. It is
+      # here only so the CI runner can start sandboxed job containers. In a real
+      # deployment isolate the runner (gVisor or a microVM) instead of this mount.
+      # - /var/run/docker.sock:/var/run/docker.sock
+
+volumes:
+  musehub-pg:
+  musehub-git:

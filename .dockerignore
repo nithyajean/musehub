@@ -1,0 +1,14 @@
+node_modules
+**/node_modules
+**/dist
+**/.next
+**/out
+**/coverage
+.git
+.hq
+submit
+CONTENT-*.html
+DEMO-*.mp4
+upload-*
+*.log
+.musehub-data
