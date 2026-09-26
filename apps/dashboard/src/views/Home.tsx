@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import { activityPerHour, computeKpis } from '../api/transform';
 import { ActivityRow } from '../components/ActivityRow';
 import { SourceBadge } from '../components/Badges';
+import { ForgeGraph } from '../components/ForgeGraph';
 import { Icon, type IconName } from '../components/Icons';
 import { PrReplay } from '../components/PrReplay';
 import { Section, SectionHead } from '../components/Section';
@@ -57,7 +58,8 @@ export function Home() {
             sandbox with restricted egress.
           </p>
         </div>
-        <div className="hero-widget">
+        <div className="hero-stage">
+          <ForgeGraph />
           <div className="ticker card">
             <div className="ticker-head">
               <span className="ticker-title">

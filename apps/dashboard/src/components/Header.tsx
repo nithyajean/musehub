@@ -1,8 +1,10 @@
 import { type KeyboardEvent as ReactKeyboardEvent, useEffect, useRef, useState } from 'react';
 import { navigate, useHashLocation } from '../hooks/useHashLocation';
+import { useScrolled } from '../hooks/useScrolled';
 import { useTheme } from '../hooks/useTheme';
 import { MENU, activeCategory } from '../routes';
 import { toggleLabel } from '../theme';
+import { CommandPalette, isApplePlatform } from './CommandPalette';
 import { Icon } from './Icons';
 
 function focusItem(container: HTMLElement | null, index: number): void {
@@ -11,12 +13,14 @@ function focusItem(container: HTMLElement | null, index: number): void {
 }
 
 /** The category top-menu: hover, focus and tap open the submenus, Escape and
- * arrow keys work, outside click and route change close. */
+ * arrow keys work, outside click and route change close. ⌘K opens the palette. */
 export function Header() {
   const route = useHashLocation();
   const { theme, toggle } = useTheme();
+  const scrolled = useScrolled(8);
   const [openIndex, setOpenIndex] = useState(-1);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [paletteOpen, setPaletteOpen] = useState(false);
   const navRef = useRef<HTMLElement>(null);
   const active = activeCategory(route.view);
 
@@ -33,6 +37,26 @@ export function Header() {
     document.addEventListener('mousedown', onDown);
     return () => document.removeEventListener('mousedown', onDown);
   }, []);
+
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      const isK = e.key.toLowerCase() === 'k';
+      if (isK && (e.metaKey || e.ctrlKey)) {
+        e.preventDefault();
+        setPaletteOpen((o) => !o);
+      }
+    }
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
+
+  useEffect(() => {
+    const prev = document.body.style.overflow;
+    if (mobileOpen) document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [mobileOpen]);
 
   function onTriggerKey(e: ReactKeyboardEvent<HTMLButtonElement>, idx: number) {
     if (e.key === 'ArrowDown' || e.key === 'Enter' || e.key === ' ') {
@@ -67,8 +91,10 @@ export function Header() {
     }
   }
 
+  const modKey = isApplePlatform() ? '⌘' : 'Ctrl';
+
   return (
-    <header className="site-header" ref={navRef}>
+    <header className={`site-header ${scrolled || mobileOpen ? 'is-scrolled' : ''}`} ref={navRef}>
       <button
         type="button"
         className="skip-link"
@@ -133,8 +159,18 @@ export function Header() {
         <div className="header-actions">
           <button
             type="button"
+            className="cmd-hint"
+            onClick={() => setPaletteOpen(true)}
+            aria-label="Open the jump palette"
+          >
+            <Icon name="search" size={14} />
+            <span>Jump to</span>
+            <span className="kbd">{modKey} K</span>
+          </button>
+          <button
+            type="button"
             className="icon-btn theme-toggle"
-            onClick={toggle}
+            onClick={(e) => toggle({ clientX: e.clientX, clientY: e.clientY })}
             aria-pressed={theme === 'dark'}
             aria-label={toggleLabel(theme)}
             title={toggleLabel(theme)}
@@ -195,6 +231,7 @@ export function Header() {
                     navigate('#/live/feed');
                   }}
                 >
+                  <span className="pulse-dot" aria-hidden="true" />
                   Watch live
                 </button>
                 <button
@@ -205,13 +242,15 @@ export function Header() {
                     navigate('#/admin');
                   }}
                 >
-                  Admin, gated
+                  <Icon name="lock" size={14} />
+                  Admin
                 </button>
               </div>
             </nav>
           </div>
         ) : null}
       </div>
+      <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} />
     </header>
   );
 }

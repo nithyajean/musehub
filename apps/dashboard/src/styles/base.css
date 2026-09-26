@@ -1,0 +1,558 @@
+/* Reset, typography, buttons, forms and the small utilities every view uses. */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-padding-top: calc(var(--header-h) + 24px);
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-body);
+  font-size: 15px;
+  line-height: 1.6;
+  color: var(--ink);
+  background: var(--bg);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  font-feature-settings: "ss01", "cv11";
+  overflow-x: hidden;
+}
+
+::selection {
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+
+h1,
+h2,
+h3,
+h4 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-weight: 600;
+  line-height: 1.08;
+  letter-spacing: -0.028em;
+  text-wrap: balance;
+  font-variation-settings: "opsz" 96;
+}
+
+h1 {
+  font-size: clamp(38px, 5.4vw, 66px);
+  font-weight: 640;
+  letter-spacing: -0.038em;
+}
+
+h2 {
+  font-size: clamp(26px, 3vw, 36px);
+}
+
+h3 {
+  font-size: 20px;
+  letter-spacing: -0.02em;
+}
+
+p {
+  margin: 0;
+  text-wrap: pretty;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+  transition: color var(--dur-fast) ease;
+}
+
+a:hover {
+  color: var(--accent);
+}
+
+b,
+strong {
+  font-weight: 600;
+}
+
+code,
+pre,
+kbd,
+.mono {
+  font-family: var(--font-mono);
+  font-feature-settings: "liga" 0, "calt" 0;
+}
+
+code {
+  font-size: 0.92em;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  border: 0;
+  background: none;
+  padding: 0;
+}
+
+button:disabled {
+  cursor: not-allowed;
+}
+
+img,
+svg {
+  display: inline-block;
+  vertical-align: middle;
+}
+
+ul,
+ol {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+dl,
+dd,
+dt {
+  margin: 0;
+}
+
+:focus {
+  outline: none;
+}
+
+:focus-visible {
+  outline: none;
+  box-shadow: var(--ring);
+  border-radius: var(--radius-xs);
+}
+
+@supports selector(::-webkit-scrollbar) {
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: var(--edge-strong);
+    border: 3px solid transparent;
+    background-clip: padding-box;
+    border-radius: 999px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+}
+
+/* ---- Layout ------------------------------------------------------------ */
+
+.wrap {
+  width: min(100% - 40px, var(--maxw));
+  margin-inline: auto;
+}
+
+.page {
+  padding-block: 56px 96px;
+}
+
+.section {
+  scroll-margin-top: calc(var(--header-h) + 24px);
+  padding-block: 72px;
+  position: relative;
+}
+
+.section.tight {
+  padding-block: 48px;
+}
+
+.section + .section {
+  border-top: 1px solid var(--edge);
+}
+
+.section-head {
+  max-width: 720px;
+  margin-bottom: 32px;
+}
+
+.section-head.row-head {
+  max-width: none;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 14px;
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+.eyebrow::before {
+  content: "";
+  width: 18px;
+  height: 1px;
+  background: currentColor;
+  opacity: 0.7;
+}
+
+.lead {
+  margin-top: 14px;
+  font-size: 17px;
+  line-height: 1.6;
+  color: var(--ink-2);
+  max-width: 62ch;
+}
+
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.center {
+  text-align: center;
+}
+
+.muted {
+  color: var(--muted);
+}
+
+.small {
+  font-size: 13px;
+}
+
+.push-right {
+  margin-left: auto;
+}
+
+.visually-hidden {
+  position: absolute !important;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ---- Buttons ----------------------------------------------------------- */
+
+.btn {
+  --btn-bg: var(--surface-2);
+  --btn-ink: var(--ink);
+  --btn-edge: var(--edge-strong);
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 40px;
+  padding: 0 16px;
+  border-radius: var(--radius-pill);
+  font-weight: 560;
+  font-size: 14px;
+  letter-spacing: -0.005em;
+  white-space: nowrap;
+  color: var(--btn-ink);
+  background: var(--btn-bg);
+  box-shadow: inset 0 0 0 1px var(--btn-edge);
+  transition: transform var(--dur) var(--ease-out), box-shadow var(--dur) var(--ease-out),
+    background-color var(--dur-fast) ease, color var(--dur-fast) ease;
+  isolation: isolate;
+  overflow: hidden;
+}
+
+.btn:hover {
+  color: var(--btn-ink);
+  transform: translateY(-1px);
+}
+
+.btn:active {
+  transform: translateY(0) scale(0.985);
+}
+
+.btn:focus-visible {
+  border-radius: var(--radius-pill);
+}
+
+.btn-lg {
+  height: 48px;
+  padding: 0 22px;
+  font-size: 15px;
+}
+
+.btn-primary {
+  --btn-bg: var(--accent);
+  --btn-ink: var(--accent-ink);
+  --btn-edge: transparent;
+  background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.18), rgba(255, 255, 255, 0) 55%);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12), 0 8px 24px -8px var(--accent-glow);
+}
+
+.btn-primary::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    110deg,
+    transparent 30%,
+    rgba(255, 255, 255, 0.35) 50%,
+    transparent 70%
+  );
+  transform: translateX(-120%);
+  transition: transform 0.7s var(--ease-out);
+  z-index: -1;
+}
+
+.btn-primary:hover {
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.18), 0 14px 34px -8px var(--accent-glow);
+}
+
+.btn-primary:hover::after {
+  transform: translateX(120%);
+}
+
+.btn-ghost {
+  --btn-bg: transparent;
+  --btn-ink: var(--ink);
+  --btn-edge: var(--edge-strong);
+  backdrop-filter: blur(8px);
+}
+
+.btn-ghost:hover {
+  --btn-bg: var(--surface-2);
+  --btn-edge: var(--edge-hi);
+}
+
+.btn-quiet {
+  --btn-bg: transparent;
+  --btn-ink: var(--ink-2);
+  --btn-edge: transparent;
+  height: 34px;
+  padding: 0 12px;
+  font-size: 13px;
+}
+
+.btn-quiet:hover {
+  --btn-bg: var(--surface-2);
+  --btn-ink: var(--ink);
+}
+
+.btn:disabled {
+  opacity: 0.55;
+  transform: none;
+  box-shadow: inset 0 0 0 1px var(--edge);
+}
+
+.icon-btn {
+  display: inline-grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border-radius: var(--radius-pill);
+  color: var(--ink-2);
+  background: transparent;
+  box-shadow: inset 0 0 0 1px transparent;
+  transition: background-color var(--dur-fast) ease, color var(--dur-fast) ease, box-shadow
+    var(--dur-fast) ease, transform var(--dur) var(--ease-spring);
+}
+
+.icon-btn:hover {
+  color: var(--ink);
+  background: var(--surface-2);
+  box-shadow: inset 0 0 0 1px var(--edge-strong);
+}
+
+.icon-btn:active {
+  transform: scale(0.92);
+}
+
+.icon-btn:focus-visible {
+  border-radius: var(--radius-pill);
+}
+
+.pulse-dot {
+  position: relative;
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--live);
+  box-shadow: 0 0 0 0 var(--live);
+  animation: pulse 2s var(--ease-out) infinite;
+}
+
+.btn-primary .pulse-dot {
+  background: var(--accent-ink);
+  box-shadow: 0 0 0 0 var(--accent-ink);
+  opacity: 0.9;
+}
+
+.kbd {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: 5px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--muted);
+  background: var(--surface-2);
+  box-shadow: inset 0 0 0 1px var(--edge-strong), 0 1px 0 var(--edge-strong);
+}
+
+/* ---- Forms --------------------------------------------------------------- */
+
+.field {
+  position: relative;
+  display: inline-flex;
+}
+
+.field select,
+.field input {
+  appearance: none;
+  height: 38px;
+  padding: 0 36px 0 14px;
+  border-radius: var(--radius-pill);
+  border: 0;
+  font: inherit;
+  font-size: 13.5px;
+  color: var(--ink);
+  background: var(--surface-2);
+  box-shadow: inset 0 0 0 1px var(--edge-strong);
+  transition: box-shadow var(--dur-fast) ease, background-color var(--dur-fast) ease;
+}
+
+.field input {
+  padding-right: 14px;
+}
+
+.field select:hover,
+.field input:hover {
+  box-shadow: inset 0 0 0 1px var(--edge-hi);
+}
+
+.field select:focus-visible,
+.field input:focus-visible {
+  box-shadow: inset 0 0 0 1px var(--accent), var(--ring);
+}
+
+.field::after {
+  content: "";
+  position: absolute;
+  right: 14px;
+  top: 50%;
+  width: 7px;
+  height: 7px;
+  border-right: 1.6px solid var(--muted);
+  border-bottom: 1.6px solid var(--muted);
+  transform: translateY(-70%) rotate(45deg);
+  pointer-events: none;
+}
+
+.field.no-caret::after {
+  display: none;
+}
+
+/* ---- Cards --------------------------------------------------------------- */
+
+.card {
+  position: relative;
+  padding: 24px;
+  border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow: inset 0 0 0 1px var(--edge), var(--shadow-sm);
+  transition: box-shadow var(--dur) var(--ease-out), transform var(--dur) var(--ease-out);
+}
+
+.card > p + p {
+  margin-top: 10px;
+}
+
+.card-kicker {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+/* A hover treatment for interactive cards: an ember rim that follows the
+   pointer, a gentle lift and a brighter edge. */
+.card-glow {
+  --gx: 50%;
+  --gy: 0%;
+  overflow: hidden;
+}
+
+.card-glow::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: radial-gradient(
+    420px circle at var(--gx) var(--gy),
+    var(--accent-soft),
+    transparent 60%
+  );
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  opacity: 0;
+  transition: opacity var(--dur) ease;
+  pointer-events: none;
+}
+
+.card-glow::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: radial-gradient(
+    360px circle at var(--gx) var(--gy),
+    var(--accent-weak),
+    transparent 60%
+  );
+  opacity: 0;
+  transition: opacity var(--dur) ease;
+  pointer-events: none;
+}
+
+.card-glow:hover::before,
+.card-glow:hover::after,
+.card-glow.is-active::before {
+  opacity: 1;
+}
+
+.card-glow:hover {
+  transform: translateY(-2px);
+  box-shadow: inset 0 0 0 1px var(--edge-strong), var(--shadow);
+}
+
+.card-glow > * {
+  position: relative;
+  z-index: 1;
+}

@@ -22,7 +22,19 @@ export type IconName =
   | 'agent'
   | 'arrow'
   | 'filter'
-  | 'pin';
+  | 'pin'
+  | 'copy'
+  | 'terminal'
+  | 'command'
+  | 'bolt'
+  | 'globe'
+  | 'cpu'
+  | 'key'
+  | 'wallet'
+  | 'chart'
+  | 'layers'
+  | 'box'
+  | 'spinner';
 
 function shape(name: IconName): ReactElement {
   switch (name) {
@@ -38,11 +50,7 @@ function shape(name: IconName): ReactElement {
     case 'moon':
       return <path d="M21 12.8A9 9 0 1 1 11.2 3 7 7 0 0 0 21 12.8z" />;
     case 'repo':
-      return (
-        <>
-          <path d="M6 3h12a1 1 0 0 1 1 1v17l-7-4-7 4V4a1 1 0 0 1 1-1z" />
-        </>
-      );
+      return <path d="M6 3h12a1 1 0 0 1 1 1v17l-7-4-7 4V4a1 1 0 0 1 1-1z" />;
     case 'pr':
       return (
         <>
@@ -128,6 +136,69 @@ function shape(name: IconName): ReactElement {
       return <path d="M4 5h16l-6 7v6l-4 2v-8z" />;
     case 'pin':
       return <path d="M12 3l3 5 5 1-4 4 1 6-5-3-5 3 1-6-4-4 5-1z" />;
+    case 'copy':
+      return (
+        <>
+          <rect x="9" y="9" width="11" height="11" rx="2" />
+          <path d="M5 15V6a2 2 0 0 1 2-2h9" />
+        </>
+      );
+    case 'terminal':
+      return (
+        <>
+          <rect x="3" y="4" width="18" height="16" rx="2" />
+          <path d="m7 9 3 3-3 3M12 15h5" />
+        </>
+      );
+    case 'command':
+      return (
+        <path d="M9 9V6a3 3 0 1 0-3 3h3zm0 0h6m-6 0v6m6-6V6a3 3 0 1 1 3 3h-3zm0 6v3a3 3 0 1 0 3-3h-3zm0 0H9m0 0v3a3 3 0 1 1-3-3h3z" />
+      );
+    case 'bolt':
+      return <path d="M13 2 4 14h7l-1 8 9-12h-7z" />;
+    case 'globe':
+      return (
+        <>
+          <circle cx="12" cy="12" r="9" />
+          <path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18" />
+        </>
+      );
+    case 'cpu':
+      return (
+        <>
+          <rect x="6" y="6" width="12" height="12" rx="2" />
+          <rect x="9.5" y="9.5" width="5" height="5" rx="1" />
+          <path d="M9 2v4M15 2v4M9 18v4M15 18v4M2 9h4M2 15h4M18 9h4M18 15h4" />
+        </>
+      );
+    case 'key':
+      return (
+        <>
+          <circle cx="8" cy="14" r="4" />
+          <path d="M11 11 20 2M16 6l3 3M14 8l2 2" />
+        </>
+      );
+    case 'wallet':
+      return (
+        <>
+          <path d="M3 7a2 2 0 0 1 2-2h13v3H5a2 2 0 0 1-2-2z" />
+          <path d="M3 7v11a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-8a1 1 0 0 0-1-1H5" />
+          <circle cx="16.5" cy="14.5" r="1" fill="currentColor" stroke="none" />
+        </>
+      );
+    case 'chart':
+      return <path d="M4 20h16M6 16l4-5 4 3 5-7" />;
+    case 'layers':
+      return <path d="m12 3 9 5-9 5-9-5 9-5zM3 13l9 5 9-5M3 17l9 5 9-5" />;
+    case 'box':
+      return (
+        <>
+          <path d="M12 3 4 7.5v9L12 21l8-4.5v-9L12 3z" />
+          <path d="M4 7.5 12 12l8-4.5M12 12v9" />
+        </>
+      );
+    case 'spinner':
+      return <path d="M12 3a9 9 0 1 1-6.4 2.6" />;
   }
 }
 

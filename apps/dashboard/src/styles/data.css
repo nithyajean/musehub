@@ -1,0 +1,852 @@
+/* Data display: KPI tiles, charts, the activity feed, avatars and chips,
+   status pills, the honest source label and the loading/empty states. */
+
+/* ---- KPI tiles ------------------------------------------------------------ */
+
+.kpi {
+  position: relative;
+  display: grid;
+  align-content: start;
+  gap: 6px;
+  padding: 18px 20px;
+  border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow: inset 0 0 0 1px var(--edge), var(--shadow-sm);
+  overflow: hidden;
+  transition: box-shadow var(--dur) ease, transform var(--dur) var(--ease-out);
+}
+
+.kpi::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 20px;
+  right: 20px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--accent-soft), transparent);
+  opacity: 0;
+  transition: opacity var(--dur) ease;
+}
+
+.kpi:hover {
+  transform: translateY(-2px);
+  box-shadow: inset 0 0 0 1px var(--edge-strong), var(--shadow);
+}
+
+.kpi:hover::before {
+  opacity: 1;
+}
+
+.kpi-label {
+  font-size: 12.5px;
+  font-weight: 520;
+  letter-spacing: 0.01em;
+  color: var(--muted);
+}
+
+.kpi-value {
+  font-family: var(--font-display);
+  font-size: 34px;
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: -0.035em;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+}
+
+.kpi-hero .kpi-value {
+  font-size: 48px;
+}
+
+.kpi-sub {
+  font-size: 12.5px;
+  color: var(--muted);
+}
+
+.kpi-trend {
+  margin-top: 6px;
+}
+
+/* ---- Sparkline ---------------------------------------------------------------- */
+
+.spark {
+  display: block;
+  width: 100%;
+  height: 40px;
+  overflow: visible;
+}
+
+.spark-area {
+  fill: url(#spark-fill);
+  stroke: none;
+  opacity: 0.9;
+  animation: fade 1s ease 0.4s both;
+}
+
+.spark-line {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-dasharray: 600;
+  stroke-dashoffset: 600;
+  animation: draw 1.4s var(--ease-out) 0.1s forwards;
+}
+
+.spark-dot {
+  fill: var(--accent);
+  stroke: var(--surface);
+  stroke-width: 2;
+  animation: pop 0.5s var(--ease-spring) 1.2s both;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+/* ---- Area chart --------------------------------------------------------------- */
+
+.area-chart {
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+
+.area-grid {
+  stroke: var(--grid-line);
+  stroke-width: 1;
+}
+
+.area-fill {
+  fill: url(#area-fill);
+  animation: fade 1s ease 0.5s both;
+}
+
+.area-line {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 2.2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-dasharray: 2000;
+  stroke-dashoffset: 2000;
+  animation: draw 1.8s var(--ease-out) forwards;
+}
+
+.area-axis {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  fill: var(--muted);
+}
+
+.area-pt {
+  fill: var(--surface);
+  stroke: var(--accent);
+  stroke-width: 2;
+  opacity: 0;
+  transition: opacity var(--dur-fast) ease;
+}
+
+.area-hit:hover .area-pt {
+  opacity: 1;
+}
+
+.area-tip {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  fill: var(--ink);
+  opacity: 0;
+  transition: opacity var(--dur-fast) ease;
+}
+
+.area-hit:hover .area-tip {
+  opacity: 1;
+}
+
+/* ---- Bar chart --------------------------------------------------------------- */
+
+.barchart {
+  display: grid;
+  gap: 12px;
+}
+
+.bar-row {
+  display: grid;
+  grid-template-columns: minmax(96px, 160px) 1fr 56px;
+  align-items: center;
+  gap: 14px;
+  font-size: 13.5px;
+}
+
+.bar-label {
+  display: grid;
+  gap: 1px;
+  font-weight: 520;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.bar-sub {
+  font-size: 11.5px;
+  font-weight: 400;
+  color: var(--muted);
+}
+
+.bar-track {
+  position: relative;
+  display: block;
+  height: 10px;
+  border-radius: 5px;
+  background: var(--track);
+  overflow: hidden;
+}
+
+.bar-fill {
+  display: block;
+  height: 100%;
+  border-radius: 5px;
+  transform-origin: left;
+  animation: fill-in 1.1s var(--ease-out) both;
+  animation-delay: calc(var(--i, 0) * 80ms);
+  background-image: linear-gradient(90deg, rgba(255, 255, 255, 0), rgba(255, 255, 255, 0.22));
+}
+
+.bar-value {
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  text-align: right;
+  color: var(--ink-2);
+  font-variant-numeric: tabular-nums;
+}
+
+.bar-rank {
+  display: inline-grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  margin-right: 8px;
+  border-radius: 6px;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  color: var(--muted);
+  background: var(--neutral-weak);
+  vertical-align: middle;
+}
+
+.bar-rank.r1 {
+  color: var(--accent-ink);
+  background: var(--accent);
+}
+
+.bar-rank.r2 {
+  color: var(--ink);
+  background: var(--edge-strong);
+}
+
+.bar-rank.r3 {
+  color: var(--ink);
+  background: var(--warning-weak);
+}
+
+/* ---- Meter -------------------------------------------------------------------- */
+
+.meter {
+  display: grid;
+  gap: 8px;
+}
+
+.meter-head {
+  display: flex;
+  justify-content: space-between;
+  font-size: 13.5px;
+  color: var(--ink-2);
+}
+
+.meter-value {
+  font-family: var(--font-mono);
+  font-weight: 500;
+  color: var(--ink);
+}
+
+.meter-track {
+  height: 10px;
+  border-radius: 5px;
+  background: var(--track);
+  overflow: hidden;
+}
+
+.meter-fill {
+  height: 100%;
+  border-radius: 5px;
+  transform-origin: left;
+  animation: fill-in 1.2s var(--ease-out) both;
+}
+
+.meter-fill.tone-good {
+  background: linear-gradient(90deg, var(--good), color-mix(in srgb, var(--good) 70%, #fff));
+}
+.meter-fill.tone-warning {
+  background: var(--warning);
+}
+.meter-fill.tone-critical {
+  background: var(--critical);
+}
+.meter-fill.tone-info {
+  background: var(--info);
+}
+
+/* ---- Ring ------------------------------------------------------------------------- */
+
+.ring {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 128px;
+  height: 128px;
+}
+
+.ring svg {
+  transform: rotate(-90deg);
+  overflow: visible;
+}
+
+.ring-track {
+  fill: none;
+  stroke: var(--track);
+  stroke-width: 9;
+}
+
+.ring-fill {
+  fill: none;
+  stroke-width: 9;
+  stroke-linecap: round;
+  transition: stroke-dashoffset 1.4s var(--ease-out);
+}
+
+.ring-fill.tone-good {
+  stroke: var(--good);
+  filter: drop-shadow(0 0 8px var(--good-weak));
+}
+.ring-fill.tone-warning {
+  stroke: var(--warning);
+}
+.ring-fill.tone-critical {
+  stroke: var(--critical);
+}
+
+.ring-center {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-content: center;
+  text-align: center;
+}
+
+.ring-value {
+  font-family: var(--font-display);
+  font-size: 30px;
+  font-weight: 600;
+  letter-spacing: -0.03em;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.ring-label {
+  margin-top: 4px;
+  font-size: 11.5px;
+  color: var(--muted);
+}
+
+/* ---- Segment bar ------------------------------------------------------------------ */
+
+.segbar-wrap {
+  display: grid;
+  gap: 12px;
+}
+
+.segbar {
+  display: flex;
+  gap: 2px;
+  height: 12px;
+  border-radius: 6px;
+  overflow: hidden;
+  background: var(--track);
+}
+
+.seg {
+  display: block;
+  height: 100%;
+  min-width: 4px;
+  transform-origin: left;
+  animation: fill-in 1s var(--ease-out) both;
+  transition: filter var(--dur-fast) ease;
+}
+
+.seg:hover {
+  filter: brightness(1.15);
+}
+
+.seg-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 18px;
+  font-size: 12.5px;
+  color: var(--ink-2);
+}
+
+.seg-legend li {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.seg-legend b {
+  font-family: var(--font-mono);
+  font-weight: 500;
+  color: var(--ink);
+}
+
+.seg-pct {
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+}
+
+.seg-key {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+}
+
+.seg-good {
+  background: var(--good);
+}
+.seg-critical {
+  background: var(--critical);
+}
+.seg-warning {
+  background: var(--warning);
+}
+.seg-info {
+  background: var(--info);
+}
+.seg-aqua {
+  background: var(--aqua);
+}
+.seg-merged {
+  background: var(--merged);
+}
+.seg-neutral {
+  background: var(--edge-hi);
+}
+
+/* ---- Activity feed ---------------------------------------------------------------- */
+
+.feed {
+  display: grid;
+  gap: 2px;
+}
+
+.act-row {
+  --i: 0;
+  display: grid;
+  grid-template-columns: 30px 1fr auto;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  transition: background-color var(--dur-fast) ease, transform var(--dur) var(--ease-out);
+  animation: rise 0.5s var(--ease-out) both;
+  animation-delay: calc(var(--i) * 35ms);
+}
+
+.act-row:hover {
+  background: var(--neutral-weak);
+}
+
+.act-row.compact {
+  grid-template-columns: 24px 1fr auto;
+  padding: 7px 6px;
+  gap: 10px;
+}
+
+.act-icon {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 9px;
+  color: var(--ink-2);
+  background: var(--neutral-weak);
+  box-shadow: inset 0 0 0 1px var(--edge);
+}
+
+.compact .act-icon {
+  width: 24px;
+  height: 24px;
+  border-radius: 7px;
+}
+
+.act-icon.kind-pr,
+.act-icon.kind-review {
+  color: var(--info);
+  background: var(--info-weak);
+}
+.act-icon.kind-commit,
+.act-icon.kind-branch {
+  color: var(--accent);
+  background: var(--accent-weak);
+}
+.act-icon.kind-ci {
+  color: var(--good);
+  background: var(--good-weak);
+}
+.act-icon.kind-repo {
+  color: var(--aqua);
+  background: var(--aqua-weak);
+}
+.act-icon.kind-onboard {
+  color: var(--merged);
+  background: var(--merged-weak);
+}
+.act-icon.kind-release {
+  color: var(--warning);
+  background: var(--warning-weak);
+}
+
+.act-body {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.act-text {
+  min-width: 0;
+  font-size: 14px;
+  color: var(--ink-2);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.compact .act-text {
+  font-size: 13px;
+}
+
+.act-text b {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.act-target {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--ink);
+  padding: 1px 6px;
+  border-radius: 5px;
+  background: var(--neutral-weak);
+}
+
+.act-time {
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---- Avatars and chips -------------------------------------------------------------- */
+
+.avatar {
+  display: inline-grid;
+  place-items: center;
+  flex-shrink: 0;
+  border-radius: 50%;
+  font-family: var(--font-mono);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: #fff;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.18);
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.25);
+}
+
+.av-0 {
+  background: linear-gradient(145deg, #ff8a3d, #d9480f);
+}
+.av-1 {
+  background: linear-gradient(145deg, #5aa9ff, #1e40af);
+}
+.av-2 {
+  background: linear-gradient(145deg, #3ecf8e, #047857);
+}
+.av-3 {
+  background: linear-gradient(145deg, #f5c542, #b45309);
+}
+.av-4 {
+  background: linear-gradient(145deg, #a78bfa, #5b21b6);
+}
+.av-5 {
+  background: linear-gradient(145deg, #22d3ee, #0e7490);
+}
+.av-6 {
+  background: linear-gradient(145deg, #f472b6, #be185d);
+}
+.av-7 {
+  background: linear-gradient(145deg, #94a3b8, #334155);
+}
+
+.agent-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 3px 10px 3px 3px;
+  border-radius: var(--radius-pill);
+  font-size: 13.5px;
+  background: var(--neutral-weak);
+  box-shadow: inset 0 0 0 1px var(--edge);
+  color: var(--ink);
+  transition: box-shadow var(--dur-fast) ease, background-color var(--dur-fast) ease;
+}
+
+.agent-chip.is-button:hover {
+  box-shadow: inset 0 0 0 1px var(--edge-strong);
+  background: var(--surface-2);
+}
+
+.chip-name {
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  font-weight: 500;
+}
+
+.chip-verified {
+  display: inline-grid;
+  place-items: center;
+  color: var(--live);
+}
+
+.chip-status {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 1px 6px;
+  border-radius: 5px;
+}
+
+.chip-suspended {
+  color: var(--warning);
+  background: var(--warning-weak);
+}
+
+.chip-revoked {
+  color: var(--critical);
+  background: var(--critical-weak);
+}
+
+/* ---- Pills and the source label ------------------------------------------------------ */
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 22px;
+  padding: 0 8px;
+  border-radius: var(--radius-pill);
+  font-size: 11.5px;
+  font-weight: 560;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+  color: var(--ink-2);
+  background: var(--neutral-weak);
+  box-shadow: inset 0 0 0 1px var(--edge);
+}
+
+.pill-info {
+  color: var(--info);
+  background: var(--info-weak);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--info) 30%, transparent);
+}
+.pill-good {
+  color: var(--good);
+  background: var(--good-weak);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--good) 30%, transparent);
+}
+.pill-warning {
+  color: var(--warning);
+  background: var(--warning-weak);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--warning) 30%, transparent);
+}
+.pill-critical {
+  color: var(--critical);
+  background: var(--critical-weak);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--critical) 30%, transparent);
+}
+.pill-merged {
+  color: var(--merged);
+  background: var(--merged-weak);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--merged) 30%, transparent);
+}
+
+.src {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 26px;
+  padding: 0 10px 0 8px;
+  border-radius: var(--radius-pill);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  background: var(--surface-glass);
+  box-shadow: inset 0 0 0 1px var(--edge-strong);
+  backdrop-filter: blur(8px);
+}
+
+.src-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+}
+
+.src-live {
+  color: var(--live);
+}
+
+.src-live .src-dot {
+  background: var(--live);
+  color: var(--live);
+  animation: pulse 2s var(--ease-out) infinite;
+}
+
+.src-demo {
+  color: var(--warning);
+}
+
+.src-demo .src-dot {
+  background: var(--warning);
+}
+
+/* ---- States ------------------------------------------------------------------------------- */
+
+.state-loading {
+  display: grid;
+  gap: 14px;
+  padding: 8px 0;
+}
+
+.skeleton-row {
+  display: grid;
+  grid-template-columns: 32px 1fr;
+  gap: 12px;
+  align-items: center;
+}
+
+.skeleton {
+  border-radius: 8px;
+  background: linear-gradient(
+    90deg,
+    var(--surface-2) 25%,
+    var(--surface-3) 50%,
+    var(--surface-2) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.6s linear infinite;
+}
+
+.skeleton-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+}
+
+.skeleton-lines {
+  display: grid;
+  gap: 8px;
+}
+
+.skeleton-line {
+  height: 10px;
+}
+
+.w-70 {
+  width: 70%;
+}
+
+.w-40 {
+  width: 40%;
+}
+
+.state-block {
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+  padding: 48px 24px;
+  text-align: center;
+  border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow: inset 0 0 0 1px var(--edge);
+}
+
+.state-icon {
+  display: grid;
+  place-items: center;
+  width: 52px;
+  height: 52px;
+  margin-bottom: 6px;
+  border-radius: 16px;
+  color: var(--accent);
+  background: var(--accent-weak);
+  box-shadow: inset 0 0 0 1px var(--accent-soft);
+  animation: float 4s ease-in-out infinite;
+}
+
+.state-error .state-icon {
+  color: var(--critical);
+  background: var(--critical-weak);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--critical) 30%, transparent);
+}
+
+.state-title {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 18px;
+}
+
+.state-hint {
+  max-width: 40ch;
+  font-size: 14px;
+  color: var(--muted);
+}
+
+.live-lost {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border-radius: var(--radius-sm);
+  font-size: 13.5px;
+  color: var(--warning);
+  background: var(--warning-weak);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--warning) 30%, transparent);
+  animation: slide-down var(--dur) var(--ease-out) both;
+}
+
+/* ---- Responsive --------------------------------------------------------------------------- */
+
+@media (max-width: 640px) {
+  .bar-row {
+    grid-template-columns: minmax(72px, 110px) 1fr 44px;
+    gap: 10px;
+  }
+
+  .kpi-value {
+    font-size: 28px;
+  }
+
+  .act-text {
+    white-space: normal;
+  }
+}

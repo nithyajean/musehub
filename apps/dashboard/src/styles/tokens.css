@@ -1,0 +1,143 @@
+/* Design tokens. Two themes, one accent. The dark theme is the primary
+   reading of the brand (a forge glows in the dark); light is a warm paper
+   variant with the same hierarchy. Semantic status colors are shared with
+   the status pills so a meaning always maps to one hue per theme. */
+
+:root {
+  --font-display: "Bricolage Grotesque", "Instrument Sans", system-ui, sans-serif;
+  --font-body: "Instrument Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  --header-h: 64px;
+  --maxw: 1240px;
+  --radius-xs: 6px;
+  --radius-sm: 10px;
+  --radius: 16px;
+  --radius-lg: 24px;
+  --radius-pill: 999px;
+
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --dur-fast: 160ms;
+  --dur: 260ms;
+  --dur-slow: 520ms;
+
+  /* Pointer position for the ambient glow, set by the Ambient component. */
+  --mx: 50vw;
+  --my: 30vh;
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #0a0b0f;
+  --bg-2: #0d0f14;
+  --surface: #121419;
+  --surface-2: #171a21;
+  --surface-3: #1e222b;
+  --surface-glass: rgba(18, 20, 25, 0.72);
+  --ink: #f3f0ea;
+  --ink-2: #bcb8b0;
+  --muted: #837f78;
+  --edge: rgba(255, 255, 255, 0.07);
+  --edge-strong: rgba(255, 255, 255, 0.14);
+  --edge-hi: rgba(255, 255, 255, 0.22);
+
+  --accent: #ff7a2f;
+  --accent-2: #ffb03a;
+  --accent-ink: #1b0c03;
+  --accent-weak: rgba(255, 122, 47, 0.14);
+  --accent-glow: rgba(255, 122, 47, 0.42);
+  --accent-soft: rgba(255, 140, 66, 0.24);
+
+  --live: #34d399;
+  --good: #3ecf8e;
+  --warning: #f5c542;
+  --serious: #fb923c;
+  --critical: #ff5c5c;
+  --info: #5aa9ff;
+  --merged: #a78bfa;
+  --aqua: #22d3ee;
+
+  --good-weak: rgba(62, 207, 142, 0.14);
+  --warning-weak: rgba(245, 197, 66, 0.14);
+  --critical-weak: rgba(255, 92, 92, 0.14);
+  --info-weak: rgba(90, 169, 255, 0.14);
+  --merged-weak: rgba(167, 139, 250, 0.16);
+  --aqua-weak: rgba(34, 211, 238, 0.14);
+  --neutral-weak: rgba(255, 255, 255, 0.07);
+
+  --series-1: #ff7a2f;
+  --series-2: #5aa9ff;
+  --series-3: #3ecf8e;
+  --series-4: #f5c542;
+  --series-5: #a78bfa;
+  --series-6: #22d3ee;
+  --series-7: #f472b6;
+  --series-8: #94a3b8;
+
+  --track: rgba(255, 255, 255, 0.08);
+  --grid-line: rgba(255, 255, 255, 0.045);
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.5);
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.5), 0 14px 40px -12px rgba(0, 0, 0, 0.6);
+  --shadow-lg: 0 2px 4px rgba(0, 0, 0, 0.5), 0 30px 80px -20px rgba(0, 0, 0, 0.75);
+  --shadow-glow: 0 0 0 1px var(--accent-soft), 0 12px 40px -8px var(--accent-glow);
+  --ring: 0 0 0 3px rgba(255, 122, 47, 0.45);
+}
+
+:root[data-theme="light"] {
+  color-scheme: light;
+  --bg: #f6f4ef;
+  --bg-2: #f1eee7;
+  --surface: #ffffff;
+  --surface-2: #f4f1ea;
+  --surface-3: #ebe7de;
+  --surface-glass: rgba(255, 255, 255, 0.78);
+  --ink: #15130f;
+  --ink-2: #4b473f;
+  --muted: #7b766c;
+  --edge: rgba(21, 19, 15, 0.08);
+  --edge-strong: rgba(21, 19, 15, 0.16);
+  --edge-hi: rgba(21, 19, 15, 0.26);
+
+  --accent: #e4570f;
+  --accent-2: #f59e0b;
+  --accent-ink: #ffffff;
+  --accent-weak: rgba(228, 87, 15, 0.1);
+  --accent-glow: rgba(228, 87, 15, 0.28);
+  --accent-soft: rgba(228, 87, 15, 0.22);
+
+  --live: #059669;
+  --good: #15803d;
+  --warning: #b45309;
+  --serious: #c2410c;
+  --critical: #dc2626;
+  --info: #2563eb;
+  --merged: #7c3aed;
+  --aqua: #0891b2;
+
+  --good-weak: rgba(21, 128, 61, 0.1);
+  --warning-weak: rgba(180, 83, 9, 0.1);
+  --critical-weak: rgba(220, 38, 38, 0.1);
+  --info-weak: rgba(37, 99, 235, 0.1);
+  --merged-weak: rgba(124, 58, 237, 0.1);
+  --aqua-weak: rgba(8, 145, 178, 0.1);
+  --neutral-weak: rgba(21, 19, 15, 0.06);
+
+  --series-1: #e4570f;
+  --series-2: #2563eb;
+  --series-3: #15803d;
+  --series-4: #b45309;
+  --series-5: #7c3aed;
+  --series-6: #0891b2;
+  --series-7: #db2777;
+  --series-8: #64748b;
+
+  --track: rgba(21, 19, 15, 0.08);
+  --grid-line: rgba(21, 19, 15, 0.05);
+  --shadow-sm: 0 1px 2px rgba(21, 19, 15, 0.06);
+  --shadow: 0 1px 2px rgba(21, 19, 15, 0.05), 0 12px 32px -12px rgba(21, 19, 15, 0.14);
+  --shadow-lg: 0 2px 4px rgba(21, 19, 15, 0.05), 0 30px 70px -20px rgba(21, 19, 15, 0.2);
+  --shadow-glow: 0 0 0 1px var(--accent-soft), 0 12px 40px -10px var(--accent-glow);
+  --ring: 0 0 0 3px rgba(228, 87, 15, 0.35);
+}
