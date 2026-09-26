@@ -9,6 +9,7 @@
 //     and array values coerced from their string form.
 // Each handler reassembles the full contract argument object before calling forge.
 import {
+  ActivityListArgs,
   BranchCreateArgs,
   CiLogsArgs,
   CiRunArgs,
@@ -21,6 +22,8 @@ import {
   IssueCommentArgs,
   IssueListArgs,
   IssueOpenArgs,
+  NotificationsListArgs,
+  NotificationsMarkReadArgs,
   OrgAddMemberArgs,
   OrgCreateArgs,
   OrgListArgs,
@@ -41,6 +44,8 @@ import {
   TeamAddMemberArgs,
   TeamCreateArgs,
   TreeReadArgs,
+  WebhookCreateArgs,
+  WebhookListArgs,
 } from '@musehub/contracts';
 import { z } from 'zod';
 

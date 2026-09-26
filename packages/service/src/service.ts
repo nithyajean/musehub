@@ -7,6 +7,7 @@
 // semantics and the error catalog.
 
 import type {
+  ActivityListArgs,
   Agent,
   AuditEvent,
   Branch,
@@ -29,6 +30,9 @@ import type {
   IssueOpenArgs,
   IssueReopenArgs,
   Membership,
+  Notification,
+  NotificationsListArgs,
+  NotificationsMarkReadArgs,
   Org,
   OrgAddMemberArgs,
   OrgCreateArgs,
@@ -59,6 +63,11 @@ import type {
   TeamCreateArgs,
   TeamMember,
   TreeReadArgs,
+  Webhook,
+  WebhookCreateArgs,
+  WebhookDeleteArgs,
+  WebhookDeliveryStatus,
+  WebhookListArgs,
 } from '@musehub/contracts';
 import { normalizeRepoSpec } from '@musehub/core';
 import type {
@@ -70,6 +79,7 @@ import type {
   DiffResult,
   EnrollResult,
   FileResult,
+  ForgeEvent,
   ForgeService,
   IssueHit,
   MergeResult,
@@ -78,6 +88,7 @@ import type {
   PrDetail,
   RepoDetail,
   TreeResult,
+  WebhookSender,
   WirePage,
 } from '@musehub/core';
 import {
@@ -95,6 +106,7 @@ import {
   ciRunNotFound,
   collaborationUnavailable,
   confirmationMismatch,
+  eventsUnavailable,
   fileNotFound,
   forbiddenHuman,
   forbiddenOrg,
@@ -113,12 +125,25 @@ import {
   teamNotFound,
   validationFailed,
 } from './errors.js';
+import {
+  createFetchSender,
+  generateSecret,
+  recipientsFor,
+  signBody,
+  targetInRepo,
+} from './events.js';
 import { mergeableState, reviewState, summarizeChecks } from './merge-gate.js';
-import { toWirePage } from './pagination.js';
+import { decodeCursor, pageSlice, toWirePage } from './pagination.js';
 import { searchCode, searchIssues, searchRepos } from './search.js';
 
 class ForgeServiceImpl implements ForgeService {
-  constructor(private readonly ports: Ports) {}
+  private readonly sender: WebhookSender;
+  /** Runs that already emitted ci.completed, so a repeated ciStatus poll fires once. */
+  private readonly ciCompletedEmitted = new Set<string>();
+
+  constructor(private readonly ports: Ports) {
+    this.sender = ports.webhookSender ?? createFetchSender();
+  }
 
   // --- helpers ------------------------------------------------------------
 
@@ -129,6 +154,112 @@ class ForgeServiceImpl implements ForgeService {
     metadata: Record<string, unknown> | null,
   ): Promise<void> {
     await this.ports.audit.append({ actor, action, target, metadata });
+  }
+
+  /**
+   * Fan an emitted domain event out to webhooks and notifications. Best-effort by
+   * contract: any failure here is swallowed so the mutation that fired the event
+   * always succeeds. Does nothing when the events layer is not wired.
+   */
+  private async emit(event: ForgeEvent): Promise<void> {
+    try {
+      await this.deliverWebhooks(event);
+    } catch {
+      // A webhook fan-out failure never breaks the operation that fired the event.
+    }
+    try {
+      await this.createNotifications(event);
+    } catch {
+      // A notification failure never breaks the operation that fired the event.
+    }
+  }
+
+  /** POST the event to every active, matching webhook and record each attempt. */
+  private async deliverWebhooks(event: ForgeEvent): Promise<void> {
+    const { webhooks, webhookDeliveries } = this.ports;
+    if (!webhooks || !webhookDeliveries) {
+      return;
+    }
+    const hooks = await webhooks.listActiveForEvent(event.repo, event.type);
+    if (hooks.length === 0) {
+      return;
+    }
+    const at = this.ports.clock.now().toISOString();
+    const body = JSON.stringify({
+      event: event.type,
+      repo: event.repo,
+      actor: event.actor,
+      target: event.target,
+      payload: event.payload,
+      delivered_at: at,
+    });
+    for (const hook of hooks) {
+      const signature = signBody(hook.secret ?? '', body);
+      const deliveryId = this.ports.ids.newId('whd');
+      let status: WebhookDeliveryStatus = 'failed';
+      let statusCode: number | null = null;
+      let error: string | null = null;
+      try {
+        const res = await this.sender.send({
+          url: hook.url,
+          body,
+          signature,
+          event: event.type,
+          deliveryId,
+        });
+        statusCode = res.statusCode;
+        status = res.statusCode >= 200 && res.statusCode < 300 ? 'delivered' : 'failed';
+        if (status === 'failed') {
+          error = `endpoint responded ${res.statusCode}`;
+        }
+      } catch (e) {
+        error = e instanceof Error ? e.message : String(e);
+      }
+      await webhookDeliveries.record({
+        webhookId: hook.id,
+        repo: event.repo,
+        event: event.type,
+        status,
+        statusCode,
+        error,
+      });
+    }
+  }
+
+  /** Create one notification per recipient the event concerns, minus the actor. */
+  private async createNotifications(event: ForgeEvent): Promise<void> {
+    const { notifications } = this.ports;
+    if (!notifications) {
+      return;
+    }
+    const seen = new Set<string>();
+    for (const recipient of recipientsFor(event)) {
+      if (recipient === event.actor || seen.has(recipient)) {
+        continue;
+      }
+      seen.add(recipient);
+      await notifications.create({
+        recipient,
+        kind: event.type,
+        subject: event.target,
+      });
+    }
+  }
+
+  /** The webhook store, or a clear error when the events layer was not wired. */
+  private requireWebhooks() {
+    if (!this.ports.webhooks) {
+      throw eventsUnavailable();
+    }
+    return this.ports.webhooks;
+  }
+
+  /** The notification store, or a clear error when the events layer was not wired. */
+  private requireNotifications() {
+    if (!this.ports.notifications) {
+      throw eventsUnavailable();
+    }
+    return this.ports.notifications;
   }
 
   /** The branch a write targets: explicit arg, else the session working branch, else the repo default. */
@@ -333,6 +464,13 @@ class ForgeServiceImpl implements ForgeService {
       visibility: args.visibility,
       auto_init: args.auto_init,
     });
+    await this.emit({
+      type: 'repo.created',
+      repo: fullName,
+      actor: ctx.agent.handle,
+      target: fullName,
+      payload: { owner, visibility: args.visibility },
+    });
     return toWireRepo(this.ports.config, { ...stored, empty });
   }
 
@@ -391,6 +529,13 @@ class ForgeServiceImpl implements ForgeService {
     await this.ports.git.deleteRepo(owner, name);
     await this.ports.repos.delete(owner, name);
     await this.audit(ctx.agent.handle, 'repo.delete', fullName, null);
+    await this.emit({
+      type: 'repo.deleted',
+      repo: fullName,
+      actor: ctx.agent.handle,
+      target: fullName,
+      payload: { owner },
+    });
     return { unchanged: false };
   }
 
@@ -469,6 +614,17 @@ class ForgeServiceImpl implements ForgeService {
       await this.audit(ctx.agent.handle, 'commit.create', `${ref.fullName}@${opts.branch}`, {
         commit_sha: result.sha,
         files_changed: result.filesChanged,
+      });
+      await this.emit({
+        type: 'commit.created',
+        repo: ref.fullName,
+        actor: ctx.agent.handle,
+        target: `${ref.fullName}@${opts.branch}`,
+        payload: {
+          commit_sha: result.sha,
+          branch: opts.branch,
+          files_changed: result.filesChanged,
+        },
       });
     }
     return {
@@ -552,6 +708,13 @@ class ForgeServiceImpl implements ForgeService {
     await this.audit(ctx.agent.handle, 'branch.create', `${ref.fullName}@${args.name}`, {
       from: fromRef,
       head_sha: head,
+    });
+    await this.emit({
+      type: 'branch.created',
+      repo: ref.fullName,
+      actor: ctx.agent.handle,
+      target: `${ref.fullName}@${args.name}`,
+      payload: { branch: args.name, from: fromRef, head_sha: head },
     });
     return { branch: args.name, head_sha: head, created: true };
   }
@@ -657,6 +820,19 @@ class ForgeServiceImpl implements ForgeService {
       head: args.head,
       base,
     });
+    await this.emit({
+      type: 'pr.opened',
+      repo: ref.fullName,
+      actor: ctx.agent.handle,
+      target: `${ref.fullName}#${pr.number}`,
+      payload: {
+        number: pr.number,
+        head: args.head,
+        base,
+        author: pr.author,
+        owner: ref.repo.owner,
+      },
+    });
     return pr;
   }
 
@@ -743,6 +919,18 @@ class ForgeServiceImpl implements ForgeService {
     await this.audit(ctx.agent.handle, 'pr.review', `${ref.fullName}#${args.number}`, {
       event: args.event,
     });
+    await this.emit({
+      type: 'pr.reviewed',
+      repo: ref.fullName,
+      actor: ctx.agent.handle,
+      target: `${ref.fullName}#${args.number}`,
+      payload: {
+        number: pr.number,
+        event: args.event,
+        author: pr.author,
+        reviewer: ctx.agent.handle,
+      },
+    });
     return review;
   }
 
@@ -820,6 +1008,18 @@ class ForgeServiceImpl implements ForgeService {
       method: args.method,
       merge_sha: merged.mergeSha,
     });
+    await this.emit({
+      type: 'pr.merged',
+      repo: ref.fullName,
+      actor: ctx.agent.handle,
+      target: `${ref.fullName}#${pr.number}`,
+      payload: {
+        number: pr.number,
+        method: args.method,
+        merge_sha: merged.mergeSha,
+        author: pr.author,
+      },
+    });
     return { merged: true, merge_sha: merged.mergeSha, already_merged: false };
   }
 
@@ -836,6 +1036,13 @@ class ForgeServiceImpl implements ForgeService {
       assignees: args.assignees ?? [],
     });
     await this.audit(ctx.agent.handle, 'issue.open', `${ref.fullName}#${issue.number}`, null);
+    await this.emit({
+      type: 'issue.opened',
+      repo: ref.fullName,
+      actor: ctx.agent.handle,
+      target: `${ref.fullName}#${issue.number}`,
+      payload: { number: issue.number, author: issue.author, assignees: issue.assignees },
+    });
     return issue;
   }
 
@@ -882,6 +1089,18 @@ class ForgeServiceImpl implements ForgeService {
     await this.ports.issues.setState(ref.fullName, args.number, 'closed');
     await this.audit(ctx.agent.handle, 'issue.close', `${ref.fullName}#${args.number}`, {
       state_reason: args.state_reason,
+    });
+    await this.emit({
+      type: 'issue.closed',
+      repo: ref.fullName,
+      actor: ctx.agent.handle,
+      target: `${ref.fullName}#${args.number}`,
+      payload: {
+        number: issue.number,
+        author: issue.author,
+        assignees: issue.assignees,
+        state_reason: args.state_reason,
+      },
     });
     return { unchanged: false };
   }
@@ -955,6 +1174,26 @@ class ForgeServiceImpl implements ForgeService {
     const run = await this.ports.ci.get(ref.fullName, args.run_id);
     if (!run) {
       throw ciRunNotFound(ref.fullName, args.run_id);
+    }
+    // The runner completes a run asynchronously and outside the service, so the one
+    // touchpoint where the service can observe completion is a status read. Emit
+    // ci.completed the first time a terminal run is seen, deduped per run so a
+    // repeated poll does not fire it again. This dedupe is in-process, which is the
+    // honest limit of emitting from a read rather than from a runner callback.
+    if (run.status === 'completed' && !this.ciCompletedEmitted.has(run.run_id)) {
+      this.ciCompletedEmitted.add(run.run_id);
+      await this.emit({
+        type: 'ci.completed',
+        repo: ref.fullName,
+        actor: ctx.agent.handle,
+        target: `${ref.fullName}@${run.ref}`,
+        payload: {
+          run_id: run.run_id,
+          workflow: run.workflow,
+          conclusion: run.conclusion,
+          head_sha: run.head_sha,
+        },
+      });
     }
     return run;
   }
@@ -1153,6 +1392,117 @@ class ForgeServiceImpl implements ForgeService {
         { agent: handle },
       );
     }
+  }
+
+  // --- events: webhooks, notifications, activity feed ---------------------
+
+  async webhookCreate(ctx: AuthContext, args: WebhookCreateArgs): Promise<Webhook> {
+    // Managing webhooks is a repo-admin action, the same bar as collaborators.
+    const webhooks = this.requireWebhooks();
+    const ref = await loadRepoForAdmin(this.ports, ctx, args.repo);
+    const secret = args.secret ?? generateSecret();
+    const hook = await webhooks.create({
+      repo: ref.fullName,
+      url: args.url,
+      events: args.events,
+      active: args.active,
+      secret,
+    });
+    await this.audit(ctx.agent.handle, 'webhook.create', ref.fullName, {
+      webhook_id: hook.id,
+      events: args.events,
+    });
+    // The secret is returned once here so the caller can store it, then redacted on
+    // every list read.
+    return hook;
+  }
+
+  async webhookList(ctx: AuthContext, args: WebhookListArgs): Promise<WirePage<Webhook>> {
+    const webhooks = this.requireWebhooks();
+    const ref = await loadRepoForAdmin(this.ports, ctx, args.repo);
+    const page = await webhooks.listByRepo(ref.fullName, {
+      ...(args.cursor !== undefined ? { cursor: args.cursor } : {}),
+      limit: args.limit,
+    });
+    // Redact the signing secret so it never leaks from a list.
+    return {
+      items: page.items.map((hook) => ({ ...hook, secret: null })),
+      next_cursor: page.nextCursor,
+      ...(page.total !== undefined ? { total: page.total } : {}),
+    };
+  }
+
+  async webhookDelete(ctx: AuthContext, args: WebhookDeleteArgs): Promise<{ removed: boolean }> {
+    const webhooks = this.requireWebhooks();
+    const ref = await loadRepoForAdmin(this.ports, ctx, args.repo);
+    const removed = await webhooks.delete(ref.fullName, args.id);
+    if (removed) {
+      await this.audit(ctx.agent.handle, 'webhook.delete', ref.fullName, { webhook_id: args.id });
+    }
+    return { removed };
+  }
+
+  async notificationsList(
+    ctx: AuthContext,
+    args: NotificationsListArgs,
+  ): Promise<WirePage<Notification>> {
+    const notifications = this.requireNotifications();
+    const page = await notifications.listByRecipient(ctx.agent.handle, {
+      unread: args.unread,
+      ...(args.cursor !== undefined ? { cursor: args.cursor } : {}),
+      limit: args.limit,
+    });
+    return toWirePage(page);
+  }
+
+  async notificationsMarkRead(
+    ctx: AuthContext,
+    args: NotificationsMarkReadArgs,
+  ): Promise<{ marked: number }> {
+    const notifications = this.requireNotifications();
+    const marked = args.all
+      ? await notifications.markAllRead(ctx.agent.handle)
+      : await notifications.markRead(ctx.agent.handle, args.ids ?? []);
+    return { marked };
+  }
+
+  async activityList(ctx: AuthContext, args: ActivityListArgs): Promise<WirePage<AuditEvent>> {
+    // The activity feed IS the audit trail, so this reuses the audit log rather than
+    // a second store. Global by default (matching the admin audit read), scoped to a
+    // repo the caller can read when repo is given, and optionally to one actor. The
+    // audit log filters by actor at the store; the repo filter matches the target in
+    // service, then an offset cursor windows the result, the same pattern search uses.
+    let repoFullName: string | undefined;
+    if (args.repo !== undefined) {
+      const ref = await loadRepoForRead(this.ports, ctx, args.repo);
+      repoFullName = ref.fullName;
+    }
+    const SCAN_CAP = 1000;
+    const collected: AuditEvent[] = [];
+    let cursor: string | undefined;
+    let exhaustive = true;
+    for (;;) {
+      const page = await this.ports.audit.list({
+        ...(args.actor !== undefined ? { actor: args.actor } : {}),
+        ...(cursor !== undefined ? { cursor } : {}),
+        limit: 100,
+      });
+      for (const event of page.items) {
+        if (repoFullName === undefined || targetInRepo(event.target, repoFullName)) {
+          collected.push(event);
+        }
+      }
+      if (collected.length >= SCAN_CAP) {
+        exhaustive = false;
+        break;
+      }
+      if (!page.nextCursor) {
+        break;
+      }
+      cursor = page.nextCursor;
+    }
+    const offset = decodeCursor(args.cursor);
+    return pageSlice(collected.slice(0, SCAN_CAP), offset, args.limit, exhaustive);
   }
 
   // --- observability ------------------------------------------------------

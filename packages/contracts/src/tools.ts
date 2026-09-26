@@ -425,6 +425,66 @@ export const RepoListCollaboratorsArgs = z
   .strict();
 export type RepoListCollaboratorsArgs = z.infer<typeof RepoListCollaboratorsArgs>;
 
+// --- Events: webhooks, notifications and activity -------------------------
+
+export const WebhookCreateArgs = z
+  .object({
+    repo: RepoSpec,
+    url: z.string().describe('Endpoint the event JSON is POSTed to. Egress is a security surface.'),
+    events: z
+      .array(z.string())
+      .min(1)
+      .describe("Event names to subscribe to, or ['*'] for every event."),
+    active: z.boolean().default(true),
+    secret: z
+      .string()
+      .optional()
+      .describe('HMAC-SHA256 signing secret. One is generated when omitted, returned once here.'),
+  })
+  .strict();
+export type WebhookCreateArgs = z.infer<typeof WebhookCreateArgs>;
+
+export const WebhookListArgs = z
+  .object({
+    repo: RepoSpec,
+    cursor: Cursor.optional(),
+    limit: z.number().int().min(1).max(100).default(30),
+  })
+  .strict();
+export type WebhookListArgs = z.infer<typeof WebhookListArgs>;
+
+export const WebhookDeleteArgs = z
+  .object({ repo: RepoSpec, id: z.string().describe('The webhook id from forge.webhook_list.') })
+  .strict();
+export type WebhookDeleteArgs = z.infer<typeof WebhookDeleteArgs>;
+
+export const NotificationsListArgs = z
+  .object({
+    unread: z.boolean().default(false).describe('Return only unread notifications.'),
+    cursor: Cursor.optional(),
+    limit: z.number().int().min(1).max(100).default(30),
+  })
+  .strict();
+export type NotificationsListArgs = z.infer<typeof NotificationsListArgs>;
+
+export const NotificationsMarkReadArgs = z
+  .object({
+    ids: z.array(z.string()).optional().describe('Notification ids to mark read.'),
+    all: z.boolean().default(false).describe("Mark all the caller's notifications read."),
+  })
+  .strict();
+export type NotificationsMarkReadArgs = z.infer<typeof NotificationsMarkReadArgs>;
+
+export const ActivityListArgs = z
+  .object({
+    repo: RepoSpec.optional().describe('Restrict to one repo. Omit for the global feed.'),
+    actor: Handle.optional().describe('Restrict to one actor handle.'),
+    cursor: Cursor.optional(),
+    limit: z.number().int().min(1).max(100).default(30),
+  })
+  .strict();
+export type ActivityListArgs = z.infer<typeof ActivityListArgs>;
+
 // --- Registry -------------------------------------------------------------
 
 /** One agent-facing tool: a stable name, a model-read description, its arg schema. */
@@ -625,6 +685,37 @@ export const TOOLS = [
     name: 'forge.repo_list_collaborators',
     description: 'List the direct collaborators on a repo and their permission.',
     schema: RepoListCollaboratorsArgs,
+  },
+  {
+    name: 'forge.webhook_create',
+    description:
+      'Register an outbound webhook on a repo. Matching events are POSTed to the url with an HMAC-SHA256 signature.',
+    schema: WebhookCreateArgs,
+  },
+  {
+    name: 'forge.webhook_list',
+    description: 'List the webhooks on a repo. The signing secret is redacted.',
+    schema: WebhookListArgs,
+  },
+  {
+    name: 'forge.webhook_delete',
+    description: 'Delete a webhook from a repo by id.',
+    schema: WebhookDeleteArgs,
+  },
+  {
+    name: 'forge.notifications_list',
+    description: "List the calling agent's notifications, optionally only the unread ones.",
+    schema: NotificationsListArgs,
+  },
+  {
+    name: 'forge.notifications_mark_read',
+    description: "Mark notifications read by id, or all of the caller's notifications.",
+    schema: NotificationsMarkReadArgs,
+  },
+  {
+    name: 'forge.activity_list',
+    description: 'Read the activity feed: audit events for one repo or the whole forge.',
+    schema: ActivityListArgs,
   },
 ] as const satisfies readonly ToolDef[];
 

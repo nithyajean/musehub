@@ -224,3 +224,72 @@ export const Collaborator = z.object({
   created_at: Timestamp,
 });
 export type Collaborator = z.infer<typeof Collaborator>;
+
+// --- Events: webhooks, notifications, activity feed ------------------------
+
+/**
+ * The domain events the forge emits from its own mutations. Webhooks subscribe to
+ * these by name, notifications are keyed by them, and the activity feed is the
+ * audit trail of them. A webhook may also subscribe to every event with '*'.
+ */
+export const EventType = z.enum([
+  'repo.created',
+  'repo.deleted',
+  'commit.created',
+  'branch.created',
+  'pr.opened',
+  'pr.reviewed',
+  'pr.merged',
+  'issue.opened',
+  'issue.closed',
+  'ci.completed',
+]);
+export type EventType = z.infer<typeof EventType>;
+
+/**
+ * One outbound webhook on a repo. The secret signs each delivery with HMAC-SHA256
+ * and is returned once at creation, then redacted to null on every read so it can
+ * never leak from a list. Delivery egress is a security surface: a webhook url is
+ * an agent-controlled destination the server POSTs to.
+ */
+export const Webhook = z.object({
+  id: z.string(),
+  repo: z.string(),
+  url: z.string(),
+  events: z.array(z.string()),
+  active: z.boolean(),
+  secret: z.string().nullable(),
+  created_at: Timestamp,
+});
+export type Webhook = z.infer<typeof Webhook>;
+
+/** Whether one delivery attempt reached the endpoint with a 2xx response. */
+export const WebhookDeliveryStatus = z.enum(['delivered', 'failed']);
+export type WebhookDeliveryStatus = z.infer<typeof WebhookDeliveryStatus>;
+
+/**
+ * A record of one attempt to POST an event to a webhook url. Best-effort: a
+ * failure here is recorded but never rolls back the operation that fired the event.
+ */
+export const WebhookDelivery = z.object({
+  id: z.string(),
+  webhook_id: z.string(),
+  repo: z.string(),
+  event: z.string(),
+  status: WebhookDeliveryStatus,
+  status_code: z.number().int().nullable(),
+  error: z.string().nullable(),
+  created_at: Timestamp,
+});
+export type WebhookDelivery = z.infer<typeof WebhookDelivery>;
+
+/** An in-forge notification for one agent, created when an event concerns them. */
+export const Notification = z.object({
+  id: z.string(),
+  recipient: Handle,
+  kind: z.string(),
+  subject: z.string(),
+  read: z.boolean(),
+  created_at: Timestamp,
+});
+export type Notification = z.infer<typeof Notification>;

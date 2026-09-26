@@ -1,4 +1,5 @@
 import type {
+  ActivityListArgs,
   Agent,
   AuditEvent,
   Branch,
@@ -23,6 +24,9 @@ import type {
   IssueOpenArgs,
   IssueReopenArgs,
   Membership,
+  Notification,
+  NotificationsListArgs,
+  NotificationsMarkReadArgs,
   Org,
   OrgAddMemberArgs,
   OrgCreateArgs,
@@ -54,6 +58,10 @@ import type {
   TeamMember,
   TreeEntry,
   TreeReadArgs,
+  Webhook,
+  WebhookCreateArgs,
+  WebhookDeleteArgs,
+  WebhookListArgs,
 } from '@musehub/contracts';
 /** The agent-facing paginated wire shape. Snake_case `next_cursor` per R6, so
  * the REST API and the MCP server (which forward the service result verbatim)
@@ -239,6 +247,17 @@ export interface ForgeService {
     ctx: AuthContext,
     args: RepoListCollaboratorsArgs,
   ): Promise<WirePage<Collaborator>>;
+
+  // events: webhooks, notifications, activity feed
+  webhookCreate(ctx: AuthContext, args: WebhookCreateArgs): Promise<Webhook>;
+  webhookList(ctx: AuthContext, args: WebhookListArgs): Promise<WirePage<Webhook>>;
+  webhookDelete(ctx: AuthContext, args: WebhookDeleteArgs): Promise<{ removed: boolean }>;
+  notificationsList(ctx: AuthContext, args: NotificationsListArgs): Promise<WirePage<Notification>>;
+  notificationsMarkRead(
+    ctx: AuthContext,
+    args: NotificationsMarkReadArgs,
+  ): Promise<{ marked: number }>;
+  activityList(ctx: AuthContext, args: ActivityListArgs): Promise<WirePage<AuditEvent>>;
 
   // observability (dashboard/admin read side)
   listAudit(

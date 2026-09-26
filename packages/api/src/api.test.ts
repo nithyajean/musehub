@@ -323,6 +323,32 @@ function makeForge(): { forge: ForgeService; spy: Spy } {
     async listBranches() {
       return [branch];
     },
+    async webhookCreate() {
+      return {
+        id: 'wh_1',
+        repo: 'checkout-bot/checkout',
+        url: 'https://hook.example/x',
+        events: ['pr.opened'],
+        active: true,
+        secret: null,
+        created_at: TS,
+      };
+    },
+    async webhookList() {
+      return page([]);
+    },
+    async webhookDelete() {
+      return { removed: false };
+    },
+    async notificationsList() {
+      return page([]);
+    },
+    async notificationsMarkRead() {
+      return { marked: 0 };
+    },
+    async activityList() {
+      return page([]);
+    },
   };
   return { forge, spy };
 }

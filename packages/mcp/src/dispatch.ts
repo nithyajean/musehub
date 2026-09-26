@@ -43,6 +43,14 @@ import type {
   ToolName,
   TreeReadArgs,
 } from '@musehub/contracts';
+import type {
+  ActivityListArgs,
+  NotificationsListArgs,
+  NotificationsMarkReadArgs,
+  WebhookCreateArgs,
+  WebhookDeleteArgs,
+  WebhookListArgs,
+} from '@musehub/contracts';
 import type { AuthContext, ForgeService } from '@musehub/core';
 
 /** Resolve an agent identity from the Bearer token. Injected by the composition root. */
@@ -160,6 +168,30 @@ export const TOOL_OPS: Record<ToolName, ToolOp> = {
   'forge.repo_list_collaborators': {
     auth: true,
     invoke: (f, ctx, a) => f.repoListCollaborators(ctx!, a as RepoListCollaboratorsArgs),
+  },
+  'forge.webhook_create': {
+    auth: true,
+    invoke: (f, ctx, a) => f.webhookCreate(ctx!, a as WebhookCreateArgs),
+  },
+  'forge.webhook_list': {
+    auth: true,
+    invoke: (f, ctx, a) => f.webhookList(ctx!, a as WebhookListArgs),
+  },
+  'forge.webhook_delete': {
+    auth: true,
+    invoke: (f, ctx, a) => f.webhookDelete(ctx!, a as WebhookDeleteArgs),
+  },
+  'forge.notifications_list': {
+    auth: true,
+    invoke: (f, ctx, a) => f.notificationsList(ctx!, a as NotificationsListArgs),
+  },
+  'forge.notifications_mark_read': {
+    auth: true,
+    invoke: (f, ctx, a) => f.notificationsMarkRead(ctx!, a as NotificationsMarkReadArgs),
+  },
+  'forge.activity_list': {
+    auth: true,
+    invoke: (f, ctx, a) => f.activityList(ctx!, a as ActivityListArgs),
   },
 };
 

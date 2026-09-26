@@ -10,6 +10,7 @@ import type {
   CollaboratorStore,
   IdGen,
   IssueStore,
+  NotificationStore,
   OrgMemberStore,
   OrgStore,
   PullRequestStore,
@@ -17,6 +18,8 @@ import type {
   SessionStore,
   TeamMemberStore,
   TeamStore,
+  WebhookDeliveryStore,
+  WebhookStore,
 } from '@musehub/core';
 import type { RepoStore } from '@musehub/core';
 import type { Db } from '../types.js';
@@ -25,6 +28,7 @@ import { makeAuditLog } from './audit.js';
 import { makeCiRunStore } from './ci.js';
 import { makeCollaboratorStore } from './collaborators.js';
 import { makeIssueStore } from './issues.js';
+import { makeNotificationStore } from './notifications.js';
 import { makeOrgMemberStore } from './org-members.js';
 import { makeOrgStore } from './orgs.js';
 import { makePullRequestStore } from './pulls.js';
@@ -33,6 +37,8 @@ import { makeReviewStore } from './reviews.js';
 import { makeSessionStore } from './sessions.js';
 import { makeTeamMemberStore } from './team-members.js';
 import { makeTeamStore } from './teams.js';
+import { makeWebhookDeliveryStore } from './webhook-deliveries.js';
+import { makeWebhookStore } from './webhooks.js';
 
 export interface StoreDeps {
   clock: Clock;
@@ -54,6 +60,9 @@ export interface Stores {
   teams: TeamStore;
   teamMembers: TeamMemberStore;
   collaborators: CollaboratorStore;
+  webhooks: WebhookStore;
+  webhookDeliveries: WebhookDeliveryStore;
+  notifications: NotificationStore;
 }
 
 export function createStores(db: Db, deps: StoreDeps): Stores {
@@ -73,5 +82,8 @@ export function createStores(db: Db, deps: StoreDeps): Stores {
     teams: makeTeamStore(exec, clock, ids),
     teamMembers: makeTeamMemberStore(exec, clock, ids),
     collaborators: makeCollaboratorStore(exec, clock, ids),
+    webhooks: makeWebhookStore(exec, clock, ids),
+    webhookDeliveries: makeWebhookDeliveryStore(exec, clock, ids),
+    notifications: makeNotificationStore(exec, clock, ids),
   };
 }

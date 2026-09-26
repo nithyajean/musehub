@@ -229,3 +229,9 @@ export function collaborationUnavailable(): ForgeError {
     next: 'Wire the org, team and collaborator stores into the composition root, then retry.',
   });
 }
+
+export function eventsUnavailable(): ForgeError {
+  return new ForgeError('internal_error', 'The events layer is not enabled on this server.', {
+    next: 'Wire the webhook, delivery and notification stores into the composition root, then retry.',
+  });
+}

@@ -15,6 +15,7 @@ import type {
   Issue,
   IssueState,
   Membership,
+  Notification,
   Org,
   OrgRole,
   PrState,
@@ -24,6 +25,8 @@ import type {
   Team,
   TeamMember,
   TreeEntry,
+  Webhook,
+  WebhookDelivery,
 } from '@musehub/contracts';
 import type {
   AgentStore,
@@ -39,9 +42,12 @@ import type {
   IssueStore,
   MuseAttestationVerifier,
   NewAgent,
+  NewDelivery,
   NewOrg,
   NewRepo,
   NewTeam,
+  NewWebhook,
+  NotificationStore,
   OrgMemberStore,
   OrgStore,
   Page,
@@ -53,6 +59,9 @@ import type {
   SessionStore,
   TeamMemberStore,
   TeamStore,
+  WebhookDeliveryStore,
+  WebhookSender,
+  WebhookStore,
 } from '@musehub/core';
 
 const NOW = '2026-09-26T00:00:00.000Z';
@@ -1017,6 +1026,155 @@ export class FakeCollaborators implements CollaboratorStore {
   }
 }
 
+export class FakeWebhooks implements WebhookStore {
+  private rows: Webhook[] = [];
+  private seq = 0;
+
+  async create(w: NewWebhook): Promise<Webhook> {
+    this.seq += 1;
+    const hook: Webhook = {
+      id: `whk_${this.seq}`,
+      repo: w.repo,
+      url: w.url,
+      events: [...w.events],
+      active: w.active,
+      secret: w.secret,
+      created_at: NOW,
+    };
+    this.rows.push(hook);
+    return { ...hook };
+  }
+  async get(repo: string, id: string): Promise<Webhook | null> {
+    const hook = this.rows.find((h) => h.repo === repo && h.id === id);
+    return hook ? { ...hook } : null;
+  }
+  async listByRepo(repo: string, q: { cursor?: string; limit: number }): Promise<Page<Webhook>> {
+    const mine = this.rows.filter((h) => h.repo === repo).map((h) => ({ ...h }));
+    return paginate(mine, q.cursor, q.limit);
+  }
+  async listActiveForEvent(repo: string, event: string): Promise<Webhook[]> {
+    return this.rows
+      .filter((h) => h.repo === repo && h.active)
+      .filter((h) => h.events.includes('*') || h.events.includes(event))
+      .map((h) => ({ ...h }));
+  }
+  async delete(repo: string, id: string): Promise<boolean> {
+    const before = this.rows.length;
+    this.rows = this.rows.filter((h) => !(h.repo === repo && h.id === id));
+    return this.rows.length < before;
+  }
+}
+
+export class FakeWebhookDeliveries implements WebhookDeliveryStore {
+  readonly rows: WebhookDelivery[] = [];
+  private seq = 0;
+
+  async record(d: NewDelivery): Promise<WebhookDelivery> {
+    this.seq += 1;
+    const delivery: WebhookDelivery = {
+      id: `whd_${this.seq}`,
+      webhook_id: d.webhookId,
+      repo: d.repo,
+      event: d.event,
+      status: d.status,
+      status_code: d.statusCode,
+      error: d.error,
+      created_at: NOW,
+    };
+    this.rows.push(delivery);
+    return { ...delivery };
+  }
+  async listByWebhook(
+    webhookId: string,
+    q: { cursor?: string; limit: number },
+  ): Promise<Page<WebhookDelivery>> {
+    const mine = this.rows.filter((d) => d.webhook_id === webhookId).reverse();
+    return paginate(mine, q.cursor, q.limit);
+  }
+}
+
+export class FakeNotifications implements NotificationStore {
+  readonly rows: Notification[] = [];
+  private seq = 0;
+
+  async create(input: { recipient: string; kind: string; subject: string }): Promise<Notification> {
+    this.seq += 1;
+    const notification: Notification = {
+      id: `ntf_${this.seq}`,
+      recipient: input.recipient,
+      kind: input.kind,
+      subject: input.subject,
+      read: false,
+      created_at: NOW,
+    };
+    this.rows.push(notification);
+    return { ...notification };
+  }
+  async listByRecipient(
+    recipient: string,
+    q: { unread?: boolean; cursor?: string; limit: number },
+  ): Promise<Page<Notification>> {
+    let mine = this.rows.filter((n) => n.recipient === recipient);
+    if (q.unread) {
+      mine = mine.filter((n) => !n.read);
+    }
+    // Newest first, the order a reader wants.
+    mine = [...mine].reverse();
+    return paginate(mine, q.cursor, q.limit);
+  }
+  async markRead(recipient: string, ids: string[]): Promise<number> {
+    let marked = 0;
+    for (const n of this.rows) {
+      if (n.recipient === recipient && !n.read && ids.includes(n.id)) {
+        n.read = true;
+        marked += 1;
+      }
+    }
+    return marked;
+  }
+  async markAllRead(recipient: string): Promise<number> {
+    let marked = 0;
+    for (const n of this.rows) {
+      if (n.recipient === recipient && !n.read) {
+        n.read = true;
+        marked += 1;
+      }
+    }
+    return marked;
+  }
+}
+
+/**
+ * A webhook sender that records every send and never touches the network. The next
+ * response is programmable so a test can prove both a delivered and a failed record,
+ * and throwOnce simulates a transport error (a rejected fetch).
+ */
+export class FakeWebhookSender implements WebhookSender {
+  readonly sent: { url: string; body: string; signature: string; event: string }[] = [];
+  nextStatus = 200;
+  throwNext = false;
+
+  async send(input: {
+    url: string;
+    body: string;
+    signature: string;
+    event: string;
+    deliveryId: string;
+  }): Promise<{ statusCode: number }> {
+    this.sent.push({
+      url: input.url,
+      body: input.body,
+      signature: input.signature,
+      event: input.event,
+    });
+    if (this.throwNext) {
+      this.throwNext = false;
+      throw new Error('connection refused');
+    }
+    return { statusCode: this.nextStatus };
+  }
+}
+
 export interface Harness {
   ports: Ports;
   agents: FakeAgents;
@@ -1036,6 +1194,10 @@ export interface Harness {
   teams: FakeTeams;
   teamMembers: FakeTeamMembers;
   collaborators: FakeCollaborators;
+  webhooks: FakeWebhooks;
+  webhookDeliveries: FakeWebhookDeliveries;
+  notifications: FakeNotifications;
+  webhookSender: FakeWebhookSender;
   allow: Set<string>;
 }
 
@@ -1061,6 +1223,10 @@ export function buildHarness(): Harness {
     teams: new FakeTeams(),
     teamMembers: new FakeTeamMembers(),
     collaborators: new FakeCollaborators(),
+    webhooks: new FakeWebhooks(),
+    webhookDeliveries: new FakeWebhookDeliveries(),
+    notifications: new FakeNotifications(),
+    webhookSender: new FakeWebhookSender(),
   };
   const ports: Ports = {
     clock: new FixedClock(),
@@ -1082,6 +1248,10 @@ export function buildHarness(): Harness {
     teams: parts.teams,
     teamMembers: parts.teamMembers,
     collaborators: parts.collaborators,
+    webhooks: parts.webhooks,
+    webhookDeliveries: parts.webhookDeliveries,
+    notifications: parts.notifications,
+    webhookSender: parts.webhookSender,
     config: { gitBaseUrl: 'https://git.test', apiBaseUrl: 'https://api.test/v1' },
   };
   return { ports, allow, ...parts };

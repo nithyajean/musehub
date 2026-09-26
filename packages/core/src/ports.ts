@@ -7,9 +7,11 @@ import type {
   Collaborator,
   Commit,
   DiffFile,
+  EventType,
   Issue,
   IssueState,
   Membership,
+  Notification,
   Org,
   OrgRole,
   PrState,
@@ -22,6 +24,9 @@ import type {
   TeamMember,
   TreeEntry,
   Visibility,
+  Webhook,
+  WebhookDelivery,
+  WebhookDeliveryStatus,
 } from '@musehub/contracts';
 
 /**
@@ -234,6 +239,87 @@ export interface CollaboratorStore {
   listByRepo(repo: string, q: { cursor?: string; limit: number }): Promise<Page<Collaborator>>;
 }
 
+// --- Events layer: webhooks, deliveries, notifications --------------------
+
+/**
+ * The internal event a mutation emits. It is not a wire type: the service builds
+ * one after a mutation and hands it to the event fan-out, which POSTs it to
+ * matching webhooks and creates notifications from it. The payload carries the
+ * fields the fan-out needs (a pull request author, an issue's assignees, and so
+ * on) so recipient resolution needs no extra reads.
+ */
+export interface ForgeEvent {
+  type: EventType;
+  /** The repo the event happened on, as owner/name. */
+  repo: string;
+  /** The handle that caused the event. */
+  actor: string;
+  /** A human ref for the subject, for example owner/name#3 or owner/name@branch. */
+  target: string;
+  payload: Record<string, unknown>;
+}
+
+export interface NewWebhook {
+  repo: string;
+  url: string;
+  events: string[];
+  active: boolean;
+  secret: string;
+}
+
+export interface WebhookStore {
+  create(w: NewWebhook): Promise<Webhook>;
+  get(repo: string, id: string): Promise<Webhook | null>;
+  listByRepo(repo: string, q: { cursor?: string; limit: number }): Promise<Page<Webhook>>;
+  /** Active webhooks on a repo whose event list matches the event name or carries '*'. */
+  listActiveForEvent(repo: string, event: string): Promise<Webhook[]>;
+  delete(repo: string, id: string): Promise<boolean>;
+}
+
+export interface NewDelivery {
+  webhookId: string;
+  repo: string;
+  event: string;
+  status: WebhookDeliveryStatus;
+  statusCode: number | null;
+  error: string | null;
+}
+
+export interface WebhookDeliveryStore {
+  record(d: NewDelivery): Promise<WebhookDelivery>;
+  listByWebhook(
+    webhookId: string,
+    q: { cursor?: string; limit: number },
+  ): Promise<Page<WebhookDelivery>>;
+}
+
+export interface NotificationStore {
+  create(input: { recipient: string; kind: string; subject: string }): Promise<Notification>;
+  listByRecipient(
+    recipient: string,
+    q: { unread?: boolean; cursor?: string; limit: number },
+  ): Promise<Page<Notification>>;
+  /** Mark the named notifications read for this recipient. Returns how many changed. */
+  markRead(recipient: string, ids: string[]): Promise<number>;
+  /** Mark every notification of this recipient read. Returns how many changed. */
+  markAllRead(recipient: string): Promise<number>;
+}
+
+/**
+ * The injected webhook sender: a thin wrapper over fetch so a unit test can supply
+ * a fake and no network happens in tests. It resolves with the HTTP status code, or
+ * rejects for a transport failure (which the caller records as a failed delivery).
+ */
+export interface WebhookSender {
+  send(input: {
+    url: string;
+    body: string;
+    signature: string;
+    event: string;
+    deliveryId: string;
+  }): Promise<{ statusCode: number }>;
+}
+
 // --- Git backend ----------------------------------------------------------
 
 export interface CommitChange {
@@ -372,4 +458,13 @@ export interface Ports {
   teams?: TeamStore;
   teamMembers?: TeamMemberStore;
   collaborators?: CollaboratorStore;
+  // Events layer stores are optional the same way: a composition that predates the
+  // events layer keeps working (no events fire, and the webhook/notification tools
+  // report events_unavailable). The activity feed reads the always-present audit log,
+  // so it works with or without these.
+  webhooks?: WebhookStore;
+  webhookDeliveries?: WebhookDeliveryStore;
+  notifications?: NotificationStore;
+  /** Delivers a signed webhook body. Defaults to a fetch-based sender when omitted. */
+  webhookSender?: WebhookSender;
 }
