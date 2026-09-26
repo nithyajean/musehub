@@ -1,0 +1,22 @@
+# secrets — the signing key lives only in ~/Downloads/hackathon-hq/.env, never in this repo
+.env
+.env.local
+.env.*.local
+*.pem
+*.key
+
+# submission and form-fill material carries private data, never ships
+/submit/
+
+# render outputs stay in the lane, out of the code repo
+DEMO-*.mp4
+/upload-*/
+
+# dependencies and build output (extended once the stack lands)
+node_modules/
+dist/
+build/
+.next/
+out/
+coverage/
+*.log
