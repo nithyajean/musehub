@@ -4,15 +4,22 @@ import type {
   AuditEvent,
   Branch,
   CiRun,
+  Collaborator,
   Commit,
   DiffFile,
   Issue,
   IssueState,
+  Membership,
+  Org,
+  OrgRole,
   PrState,
   PullRequest,
   Repo,
+  RepoPermission,
   Review,
   ReviewEvent,
+  Team,
+  TeamMember,
   TreeEntry,
   Visibility,
 } from '@musehub/contracts';
@@ -175,6 +182,58 @@ export interface SessionStore {
   setWorkingBranch(agentId: string, repo: string, branch: string): Promise<void>;
 }
 
+// --- Collaboration: orgs, teams, memberships, collaborators ---------------
+
+export interface NewOrg {
+  handle: string;
+  displayName: string | null;
+}
+
+export interface OrgStore {
+  create(o: NewOrg): Promise<Org>;
+  getByHandle(handle: string): Promise<Org | null>;
+  handleTaken(handle: string): Promise<boolean>;
+  /** Orgs an agent is a member of, newest first. */
+  listByMember(agent: string, q: { cursor?: string; limit: number }): Promise<Page<Org>>;
+}
+
+export interface OrgMemberStore {
+  /** Add a member or update an existing member's role. Idempotent per (org, agent). */
+  upsert(org: string, agent: string, role: OrgRole): Promise<Membership>;
+  remove(org: string, agent: string): Promise<boolean>;
+  get(org: string, agent: string): Promise<Membership | null>;
+  listByOrg(org: string, q: { cursor?: string; limit: number }): Promise<Page<Membership>>;
+}
+
+export interface NewTeam {
+  org: string;
+  slug: string;
+  name: string;
+}
+
+export interface TeamStore {
+  create(t: NewTeam): Promise<Team>;
+  get(org: string, slug: string): Promise<Team | null>;
+  listByOrg(org: string, q: { cursor?: string; limit: number }): Promise<Page<Team>>;
+}
+
+export interface TeamMemberStore {
+  /** Add an agent to a team. Idempotent per (org, slug, agent). */
+  add(org: string, slug: string, agent: string): Promise<TeamMember>;
+  remove(org: string, slug: string, agent: string): Promise<boolean>;
+  /** True when the agent is on any team in the org (the team-grant check). */
+  isMemberOfAnyTeam(org: string, agent: string): Promise<boolean>;
+  listByTeam(org: string, slug: string): Promise<TeamMember[]>;
+}
+
+export interface CollaboratorStore {
+  /** Grant or update a collaborator's permission. Idempotent per (repo, agent). */
+  upsert(repo: string, agent: string, permission: RepoPermission): Promise<Collaborator>;
+  remove(repo: string, agent: string): Promise<boolean>;
+  get(repo: string, agent: string): Promise<Collaborator | null>;
+  listByRepo(repo: string, q: { cursor?: string; limit: number }): Promise<Page<Collaborator>>;
+}
+
 // --- Git backend ----------------------------------------------------------
 
 export interface CommitChange {
@@ -305,4 +364,12 @@ export interface Ports {
   attestation: MuseAttestationVerifier;
   runner: CiRunner;
   config: { gitBaseUrl: string; apiBaseUrl: string };
+  // Collaboration stores are optional so a composition that predates multi-agent
+  // collaboration keeps working: when they are absent authz falls back to the
+  // owner-only path and the org/team/collaborator methods report internal_error.
+  orgs?: OrgStore;
+  orgMembers?: OrgMemberStore;
+  teams?: TeamStore;
+  teamMembers?: TeamMemberStore;
+  collaborators?: CollaboratorStore;
 }

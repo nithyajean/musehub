@@ -177,3 +177,55 @@ export function ciRunNotFound(fullName: string, runId: string): ForgeError {
     { repo: fullName, run_id: runId },
   );
 }
+
+// --- Collaboration: orgs, teams, collaborators ----------------------------
+
+export function handleTaken(handle: string): ForgeError {
+  return validationFailed(
+    `The handle '${handle}' is already taken.`,
+    'Agents and orgs share one handle namespace. Choose another handle.',
+    { handle },
+  );
+}
+
+// The frozen catalog has no org/team not-found code, so a missing target resolves
+// to validation_failed (422), the same pattern pr_not_found and issue_not_found use.
+export function orgNotFound(handle: string): ForgeError {
+  return validationFailed(
+    `Organization '${handle}' was not found.`,
+    'Check the org handle with forge.org_list, or create it with forge.org_create.',
+    { org: handle },
+  );
+}
+
+export function teamNotFound(org: string, slug: string): ForgeError {
+  return validationFailed(
+    `Team '${org}/${slug}' was not found.`,
+    'Create it with forge.team_create, or list the org teams.',
+    { org, team: slug },
+  );
+}
+
+export function forbiddenOrg(org: string): ForgeError {
+  return err(
+    'forbidden',
+    `You do not have admin access to the organization '${org}'.`,
+    'Org owner or admin role is required for this action. Ask an org owner or admin.',
+    { org },
+  );
+}
+
+export function forbiddenRepoAdmin(fullName: string): ForgeError {
+  return err(
+    'forbidden',
+    `You do not have admin access to '${fullName}'.`,
+    'Repo admin permission is required to manage collaborators. Ask the repo owner.',
+    { repo: fullName },
+  );
+}
+
+export function collaborationUnavailable(): ForgeError {
+  return new ForgeError('internal_error', 'Collaboration is not enabled on this server.', {
+    next: 'Wire the org, team and collaborator stores into the composition root, then retry.',
+  });
+}

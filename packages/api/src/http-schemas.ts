@@ -21,17 +21,25 @@ import {
   IssueCommentArgs,
   IssueListArgs,
   IssueOpenArgs,
+  OrgAddMemberArgs,
+  OrgCreateArgs,
+  OrgListArgs,
   PrCommentArgs,
   PrListArgs,
   PrMergeArgs,
   PrOpenArgs,
   PrReviewArgs,
+  RepoAddCollaboratorArgs,
   RepoDeleteArgs,
   RepoListArgs,
+  RepoListCollaboratorsArgs,
   RepoName,
   SearchCodeArgs,
   SearchIssuesArgs,
   SearchReposArgs,
+  Slug,
+  TeamAddMemberArgs,
+  TeamCreateArgs,
   TreeReadArgs,
 } from '@musehub/contracts';
 import { z } from 'zod';
@@ -103,3 +111,19 @@ export const IssueOpenBody = IssueOpenArgs.omit({ repo: true });
 export const IssueCommentBody = IssueCommentArgs.omit({ repo: true, number: true });
 export const IssueCloseBody = IssueCloseArgs.omit({ repo: true, number: true });
 export const CiRunBody = CiRunArgs.omit({ repo: true });
+
+// --- Organizations, teams and collaborators --------------------------------
+export const OrgParams = z.object({ org: Handle });
+export const OrgMemberParams = z.object({ org: Handle, agent: Handle });
+export const OrgTeamParams = z.object({ org: Handle, team: Slug });
+export const RepoCollabParams = z.object({ owner: Handle, repo: RepoName, agent: Handle });
+
+export const OrgCreateBody = OrgCreateArgs;
+export const OrgListQuery = OrgListArgs.extend({ limit: limitQuery });
+export const OrgAddMemberBody = OrgAddMemberArgs.omit({ org: true });
+export const TeamCreateBody = TeamCreateArgs.omit({ org: true });
+export const TeamAddMemberBody = TeamAddMemberArgs.omit({ org: true, team: true });
+export const RepoAddCollaboratorBody = RepoAddCollaboratorArgs.omit({ repo: true });
+export const RepoListCollaboratorsQuery = RepoListCollaboratorsArgs.omit({ repo: true }).extend({
+  limit: limitQuery,
+});

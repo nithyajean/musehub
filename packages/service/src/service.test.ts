@@ -10,15 +10,25 @@ import {
   IssueCommentArgs,
   IssueOpenArgs,
   IssueReopenArgs,
+  OrgAddMemberArgs,
+  OrgCreateArgs,
+  OrgGetArgs,
+  OrgListArgs,
+  OrgRemoveMemberArgs,
   PrMergeArgs,
   PrOpenArgs,
+  RepoAddCollaboratorArgs,
   RepoCreateArgs,
   RepoDeleteArgs,
   RepoGetArgs,
   RepoListArgs,
+  RepoListCollaboratorsArgs,
+  RepoRemoveCollaboratorArgs,
   SearchCodeArgs,
   SearchIssuesArgs,
   SearchReposArgs,
+  TeamAddMemberArgs,
+  TeamCreateArgs,
   TreeReadArgs,
   isForgeError,
 } from '@musehub/contracts';
@@ -595,5 +605,187 @@ describe('audit trail', () => {
     const actions = log.items.map((e) => e.action);
     expect(actions).toContain('agent.enroll');
     expect(actions).toContain('repo.create');
+  });
+});
+
+describe('organizations and teams', () => {
+  it('creates an org, makes the creator its owner, and lists it', async () => {
+    const { ctx } = await enroll(h, svc, 'did:key:zORG', 'alice');
+    const org = await svc.orgCreate(
+      ctx,
+      OrgCreateArgs.parse({ handle: 'acme', display_name: 'Acme' }),
+    );
+    expect(org.handle).toBe('acme');
+
+    const detail = await svc.orgGet(ctx, OrgGetArgs.parse({ org: 'acme' }));
+    expect(detail.viewer_role).toBe('owner');
+    expect(detail.member_count).toBe(1);
+
+    const mine = await svc.orgList(ctx, OrgListArgs.parse({}));
+    expect(mine.items.map((o) => o.handle)).toContain('acme');
+  });
+
+  it('rejects an org handle already held by an agent or an org', async () => {
+    const { ctx } = await enroll(h, svc, 'did:key:zORG2', 'alice');
+    // 'alice' is an agent handle already.
+    expect(await codeOf(svc.orgCreate(ctx, OrgCreateArgs.parse({ handle: 'alice' })))).toBe(
+      'validation_failed',
+    );
+    await svc.orgCreate(ctx, OrgCreateArgs.parse({ handle: 'acme' }));
+    expect(await codeOf(svc.orgCreate(ctx, OrgCreateArgs.parse({ handle: 'acme' })))).toBe(
+      'validation_failed',
+    );
+  });
+
+  it('only an org admin can add or remove members', async () => {
+    const { ctx: alice } = await enroll(h, svc, 'did:key:zORG3', 'alice');
+    const { ctx: bob } = await enroll(h, svc, 'did:key:zORG4', 'bob');
+    await enroll(h, svc, 'did:key:zORG5', 'carol');
+    await svc.orgCreate(alice, OrgCreateArgs.parse({ handle: 'acme' }));
+
+    // bob is not a member, so he cannot add anyone.
+    expect(
+      await codeOf(svc.orgAddMember(bob, OrgAddMemberArgs.parse({ org: 'acme', agent: 'carol' }))),
+    ).toBe('forbidden');
+
+    // alice (owner) adds bob as a plain member.
+    const m = await svc.orgAddMember(alice, OrgAddMemberArgs.parse({ org: 'acme', agent: 'bob' }));
+    expect(m.role).toBe('member');
+
+    // bob (member, not admin) still cannot add carol.
+    expect(
+      await codeOf(svc.orgAddMember(bob, OrgAddMemberArgs.parse({ org: 'acme', agent: 'carol' }))),
+    ).toBe('forbidden');
+
+    // A member must be an enrolled agent.
+    expect(
+      await codeOf(
+        svc.orgAddMember(alice, OrgAddMemberArgs.parse({ org: 'acme', agent: 'ghost' })),
+      ),
+    ).toBe('validation_failed');
+
+    const removed = await svc.orgRemoveMember(
+      alice,
+      OrgRemoveMemberArgs.parse({ org: 'acme', agent: 'bob' }),
+    );
+    expect(removed.removed).toBe(true);
+  });
+});
+
+describe('collaboration authorization', () => {
+  // A shared org 'acme' with a private repo, an admin, a team member, a read-only
+  // collaborator and an outsider, to prove each authz path in one place.
+  async function scene() {
+    const { ctx: alice } = await enroll(h, svc, 'did:key:zC1', 'alice');
+    const { ctx: carol } = await enroll(h, svc, 'did:key:zC2', 'carol');
+    const { ctx: dave } = await enroll(h, svc, 'did:key:zC3', 'dave');
+    const { ctx: eve } = await enroll(h, svc, 'did:key:zC4', 'eve');
+    const { ctx: frank } = await enroll(h, svc, 'did:key:zC5', 'frank');
+
+    await svc.orgCreate(alice, OrgCreateArgs.parse({ handle: 'acme' }));
+    await svc.repoCreate(
+      alice,
+      RepoCreateArgs.parse({ name: 'app', owner: 'acme', visibility: 'private' }),
+    );
+
+    // carol is an org admin.
+    await svc.orgAddMember(
+      alice,
+      OrgAddMemberArgs.parse({ org: 'acme', agent: 'carol', role: 'admin' }),
+    );
+    // dave is only on a team in the org, not a direct member.
+    await svc.teamCreate(alice, TeamCreateArgs.parse({ org: 'acme', slug: 'devs', name: 'Devs' }));
+    await svc.teamAddMember(
+      alice,
+      TeamAddMemberArgs.parse({ org: 'acme', team: 'devs', agent: 'dave' }),
+    );
+    // eve is a read-only collaborator on the repo.
+    await svc.repoAddCollaborator(
+      alice,
+      RepoAddCollaboratorArgs.parse({ repo: 'acme/app', agent: 'eve', permission: 'read' }),
+    );
+    return { alice, carol, dave, eve, frank };
+  }
+
+  const write = (repo: string) =>
+    CommitCreateArgs.parse({
+      repo,
+      message: 'touch',
+      changes: [{ path: 'f.txt', content: 'hi' }],
+    });
+
+  it('a team member can write to the org repo', async () => {
+    const { dave } = await scene();
+    const commit = await svc.commitCreate(dave, write('acme/app'));
+    expect(commit.commit_sha).toMatch(/^[0-9a-f]{40}$/);
+  });
+
+  it('an org admin can write to the org repo', async () => {
+    const { carol } = await scene();
+    const commit = await svc.commitCreate(carol, write('acme/app'));
+    expect(commit.unchanged).toBe(false);
+  });
+
+  it('a read-only collaborator can read but cannot write', async () => {
+    const { eve } = await scene();
+    const detail = await svc.repoGet(eve, RepoGetArgs.parse({ repo: 'acme/app' }));
+    expect(detail.full_name).toBe('acme/app');
+    expect(await codeOf(svc.commitCreate(eve, write('acme/app')))).toBe('forbidden');
+  });
+
+  it('an outsider is refused and the private repo is hidden as repo_not_found', async () => {
+    const { frank } = await scene();
+    expect(await codeOf(svc.repoGet(frank, RepoGetArgs.parse({ repo: 'acme/app' })))).toBe(
+      'repo_not_found',
+    );
+    expect(await codeOf(svc.commitCreate(frank, write('acme/app')))).toBe('repo_not_found');
+  });
+});
+
+describe('repo collaborators', () => {
+  async function ownerRepo() {
+    const { ctx } = await enroll(h, svc, 'did:key:zCOL', 'alice');
+    await svc.repoCreate(ctx, RepoCreateArgs.parse({ name: 'app', visibility: 'private' }));
+    await enroll(h, svc, 'did:key:zCOL2', 'bob');
+    return ctx;
+  }
+
+  it('the repo owner grants, lists and revokes a collaborator', async () => {
+    const alice = await ownerRepo();
+    const grant = await svc.repoAddCollaborator(
+      alice,
+      RepoAddCollaboratorArgs.parse({ repo: 'app', agent: 'bob', permission: 'write' }),
+    );
+    expect(grant.permission).toBe('write');
+
+    const list = await svc.repoListCollaborators(
+      alice,
+      RepoListCollaboratorsArgs.parse({ repo: 'app' }),
+    );
+    expect(list.items.map((c) => c.agent)).toContain('bob');
+
+    const removed = await svc.repoRemoveCollaborator(
+      alice,
+      RepoRemoveCollaboratorArgs.parse({ repo: 'app', agent: 'bob' }),
+    );
+    expect(removed.removed).toBe(true);
+  });
+
+  it('a non-admin collaborator cannot manage collaborators', async () => {
+    const alice = await ownerRepo();
+    await svc.repoAddCollaborator(
+      alice,
+      RepoAddCollaboratorArgs.parse({ repo: 'app', agent: 'bob', permission: 'write' }),
+    );
+    const { ctx: bob } = await enroll(h, svc, 'did:key:zCOL3', 'bob-2');
+    // bob-2 has no grant, so the private repo is hidden.
+    expect(
+      await codeOf(
+        svc.repoAddCollaborator(
+          bob,
+          RepoAddCollaboratorArgs.parse({ repo: 'alice/app', agent: 'bob', permission: 'admin' }),
+        ),
+      ),
+    ).toBe('repo_not_found');
   });
 });

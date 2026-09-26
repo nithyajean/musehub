@@ -9,13 +9,20 @@ import type {
   AuditEvent,
   Branch,
   CiRun,
+  Collaborator,
   Commit,
   DiffFile,
   Issue,
   IssueState,
+  Membership,
+  Org,
+  OrgRole,
   PrState,
   PullRequest,
+  RepoPermission,
   Review,
+  Team,
+  TeamMember,
   TreeEntry,
 } from '@musehub/contracts';
 import type {
@@ -25,13 +32,18 @@ import type {
   CiRunStore,
   CiRunner,
   Clock,
+  CollaboratorStore,
   GitBackend,
   IdGen,
   IdentityService,
   IssueStore,
   MuseAttestationVerifier,
   NewAgent,
+  NewOrg,
   NewRepo,
+  NewTeam,
+  OrgMemberStore,
+  OrgStore,
   Page,
   Ports,
   PullRequestStore,
@@ -39,6 +51,8 @@ import type {
   Repo_,
   ReviewStore,
   SessionStore,
+  TeamMemberStore,
+  TeamStore,
 } from '@musehub/core';
 
 const NOW = '2026-09-26T00:00:00.000Z';
@@ -860,6 +874,149 @@ export class FakeVerifier implements MuseAttestationVerifier {
   }
 }
 
+export class FakeOrgMembers implements OrgMemberStore {
+  private rows: Membership[] = [];
+
+  async upsert(org: string, agent: string, role: OrgRole): Promise<Membership> {
+    const existing = this.rows.find((m) => m.org === org && m.agent === agent);
+    if (existing) {
+      existing.role = role;
+      return { ...existing };
+    }
+    const membership: Membership = { org, agent, role, created_at: NOW };
+    this.rows.push(membership);
+    return { ...membership };
+  }
+  async remove(org: string, agent: string): Promise<boolean> {
+    const before = this.rows.length;
+    this.rows = this.rows.filter((m) => !(m.org === org && m.agent === agent));
+    return this.rows.length < before;
+  }
+  async get(org: string, agent: string): Promise<Membership | null> {
+    return this.rows.find((m) => m.org === org && m.agent === agent) ?? null;
+  }
+  async listByOrg(org: string, q: { cursor?: string; limit: number }): Promise<Page<Membership>> {
+    const mine = this.rows
+      .filter((m) => m.org === org)
+      .sort((a, b) => (a.agent < b.agent ? -1 : a.agent > b.agent ? 1 : 0));
+    return paginate(mine, q.cursor, q.limit);
+  }
+  orgHandlesForAgent(agent: string): string[] {
+    return this.rows.filter((m) => m.agent === agent).map((m) => m.org);
+  }
+}
+
+export class FakeOrgs implements OrgStore {
+  private rows: Org[] = [];
+  private seq = 0;
+  constructor(private readonly members: FakeOrgMembers) {}
+
+  async create(o: NewOrg): Promise<Org> {
+    this.seq += 1;
+    const org: Org = {
+      id: `org_${this.seq}`,
+      handle: o.handle,
+      display_name: o.displayName,
+      created_at: NOW,
+    };
+    this.rows.push(org);
+    return org;
+  }
+  async getByHandle(handle: string): Promise<Org | null> {
+    return this.rows.find((o) => o.handle === handle) ?? null;
+  }
+  async handleTaken(handle: string): Promise<boolean> {
+    return this.rows.some((o) => o.handle === handle);
+  }
+  async listByMember(agent: string, q: { cursor?: string; limit: number }): Promise<Page<Org>> {
+    const handles = new Set(this.members.orgHandlesForAgent(agent));
+    const mine = this.rows.filter((o) => handles.has(o.handle));
+    return paginate(mine, q.cursor, q.limit);
+  }
+}
+
+export class FakeTeams implements TeamStore {
+  private rows: Team[] = [];
+  private seq = 0;
+
+  async create(t: NewTeam): Promise<Team> {
+    this.seq += 1;
+    const team: Team = {
+      id: `team_${this.seq}`,
+      org: t.org,
+      slug: t.slug,
+      name: t.name,
+      created_at: NOW,
+    };
+    this.rows.push(team);
+    return team;
+  }
+  async get(org: string, slug: string): Promise<Team | null> {
+    return this.rows.find((t) => t.org === org && t.slug === slug) ?? null;
+  }
+  async listByOrg(org: string, q: { cursor?: string; limit: number }): Promise<Page<Team>> {
+    const mine = this.rows
+      .filter((t) => t.org === org)
+      .sort((a, b) => (a.slug < b.slug ? -1 : a.slug > b.slug ? 1 : 0));
+    return paginate(mine, q.cursor, q.limit);
+  }
+}
+
+export class FakeTeamMembers implements TeamMemberStore {
+  private rows: TeamMember[] = [];
+
+  async add(org: string, slug: string, agent: string): Promise<TeamMember> {
+    const existing = this.rows.find((m) => m.org === org && m.team === slug && m.agent === agent);
+    if (existing) {
+      return { ...existing };
+    }
+    const member: TeamMember = { org, team: slug, agent, created_at: NOW };
+    this.rows.push(member);
+    return { ...member };
+  }
+  async remove(org: string, slug: string, agent: string): Promise<boolean> {
+    const before = this.rows.length;
+    this.rows = this.rows.filter((m) => !(m.org === org && m.team === slug && m.agent === agent));
+    return this.rows.length < before;
+  }
+  async isMemberOfAnyTeam(org: string, agent: string): Promise<boolean> {
+    return this.rows.some((m) => m.org === org && m.agent === agent);
+  }
+  async listByTeam(org: string, slug: string): Promise<TeamMember[]> {
+    return this.rows.filter((m) => m.org === org && m.team === slug);
+  }
+}
+
+export class FakeCollaborators implements CollaboratorStore {
+  private rows: Collaborator[] = [];
+
+  async upsert(repo: string, agent: string, permission: RepoPermission): Promise<Collaborator> {
+    const existing = this.rows.find((c) => c.repo === repo && c.agent === agent);
+    if (existing) {
+      existing.permission = permission;
+      return { ...existing };
+    }
+    const grant: Collaborator = { repo, agent, permission, created_at: NOW };
+    this.rows.push(grant);
+    return { ...grant };
+  }
+  async remove(repo: string, agent: string): Promise<boolean> {
+    const before = this.rows.length;
+    this.rows = this.rows.filter((c) => !(c.repo === repo && c.agent === agent));
+    return this.rows.length < before;
+  }
+  async get(repo: string, agent: string): Promise<Collaborator | null> {
+    return this.rows.find((c) => c.repo === repo && c.agent === agent) ?? null;
+  }
+  async listByRepo(
+    repo: string,
+    q: { cursor?: string; limit: number },
+  ): Promise<Page<Collaborator>> {
+    const mine = this.rows.filter((c) => c.repo === repo);
+    return paginate(mine, q.cursor, q.limit);
+  }
+}
+
 export interface Harness {
   ports: Ports;
   agents: FakeAgents;
@@ -874,12 +1031,18 @@ export interface Harness {
   identity: FakeIdentity;
   runner: FakeRunner;
   verifier: FakeVerifier;
+  orgs: FakeOrgs;
+  orgMembers: FakeOrgMembers;
+  teams: FakeTeams;
+  teamMembers: FakeTeamMembers;
+  collaborators: FakeCollaborators;
   allow: Set<string>;
 }
 
 /** Assemble a fresh Ports bundle backed by the fakes, plus handles to each fake. */
 export function buildHarness(): Harness {
   const allow = new Set<string>();
+  const orgMembers = new FakeOrgMembers();
   const parts = {
     agents: new FakeAgents(),
     repos: new FakeRepos(),
@@ -893,6 +1056,11 @@ export function buildHarness(): Harness {
     identity: new FakeIdentity(),
     runner: new FakeRunner(),
     verifier: new FakeVerifier(allow),
+    orgs: new FakeOrgs(orgMembers),
+    orgMembers,
+    teams: new FakeTeams(),
+    teamMembers: new FakeTeamMembers(),
+    collaborators: new FakeCollaborators(),
   };
   const ports: Ports = {
     clock: new FixedClock(),
@@ -909,6 +1077,11 @@ export function buildHarness(): Harness {
     identity: parts.identity,
     attestation: parts.verifier,
     runner: parts.runner,
+    orgs: parts.orgs,
+    orgMembers: parts.orgMembers,
+    teams: parts.teams,
+    teamMembers: parts.teamMembers,
+    collaborators: parts.collaborators,
     config: { gitBaseUrl: 'https://git.test', apiBaseUrl: 'https://api.test/v1' },
   };
   return { ports, allow, ...parts };

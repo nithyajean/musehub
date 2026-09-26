@@ -7,29 +7,39 @@ import type {
   AuditLog,
   CiRunStore,
   Clock,
+  CollaboratorStore,
   IdGen,
   IssueStore,
+  OrgMemberStore,
+  OrgStore,
   PullRequestStore,
   ReviewStore,
   SessionStore,
+  TeamMemberStore,
+  TeamStore,
 } from '@musehub/core';
 import type { RepoStore } from '@musehub/core';
 import type { Db } from '../types.js';
 import { makeAgentStore } from './agents.js';
 import { makeAuditLog } from './audit.js';
 import { makeCiRunStore } from './ci.js';
+import { makeCollaboratorStore } from './collaborators.js';
 import { makeIssueStore } from './issues.js';
+import { makeOrgMemberStore } from './org-members.js';
+import { makeOrgStore } from './orgs.js';
 import { makePullRequestStore } from './pulls.js';
 import { makeRepoStore } from './repos.js';
 import { makeReviewStore } from './reviews.js';
 import { makeSessionStore } from './sessions.js';
+import { makeTeamMemberStore } from './team-members.js';
+import { makeTeamStore } from './teams.js';
 
 export interface StoreDeps {
   clock: Clock;
   ids: IdGen;
 }
 
-/** The eight persistence ports, keyed the way core's Ports expects them. */
+/** The persistence ports, keyed the way core's Ports expects them. */
 export interface Stores {
   agents: AgentStore;
   repos: RepoStore;
@@ -39,6 +49,11 @@ export interface Stores {
   ci: CiRunStore;
   audit: AuditLog;
   sessions: SessionStore;
+  orgs: OrgStore;
+  orgMembers: OrgMemberStore;
+  teams: TeamStore;
+  teamMembers: TeamMemberStore;
+  collaborators: CollaboratorStore;
 }
 
 export function createStores(db: Db, deps: StoreDeps): Stores {
@@ -53,5 +68,10 @@ export function createStores(db: Db, deps: StoreDeps): Stores {
     ci: makeCiRunStore(exec, clock, ids),
     audit: makeAuditLog(exec, clock, ids),
     sessions: makeSessionStore(exec, clock, ids),
+    orgs: makeOrgStore(exec, clock, ids),
+    orgMembers: makeOrgMemberStore(exec, clock, ids),
+    teams: makeTeamStore(exec, clock, ids),
+    teamMembers: makeTeamMemberStore(exec, clock, ids),
+    collaborators: makeCollaboratorStore(exec, clock, ids),
   };
 }

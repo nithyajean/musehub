@@ -205,4 +205,60 @@ export const TABLES: TableSpec[] = [
       { name: 'last_number', kind: 'int', notNull: true },
     ],
   },
+  {
+    name: 'orgs',
+    columns: [
+      { name: 'id', kind: 'text', pk: true, notNull: true },
+      { name: 'handle', kind: 'text', notNull: true },
+      { name: 'display_name', kind: 'text' },
+      { name: 'created_at', kind: 'ts', notNull: true },
+    ],
+    indexes: [{ name: 'orgs_handle_uidx', columns: ['handle'], unique: true }],
+  },
+  {
+    name: 'org_members',
+    columns: [
+      { name: 'org', kind: 'text', notNull: true },
+      { name: 'agent', kind: 'text', notNull: true },
+      { name: 'role', kind: 'text', notNull: true },
+      { name: 'created_at', kind: 'ts', notNull: true },
+    ],
+    primaryKey: ['org', 'agent'],
+    indexes: [{ name: 'org_members_agent_idx', columns: ['agent'] }],
+  },
+  {
+    name: 'teams',
+    columns: [
+      { name: 'id', kind: 'text', pk: true, notNull: true },
+      { name: 'org', kind: 'text', notNull: true },
+      { name: 'slug', kind: 'text', notNull: true },
+      { name: 'name', kind: 'text', notNull: true },
+      { name: 'created_at', kind: 'ts', notNull: true },
+    ],
+    indexes: [{ name: 'teams_org_slug_uidx', columns: ['org', 'slug'], unique: true }],
+  },
+  {
+    // org is denormalized so the team-grant check (is this agent on any team in
+    // the org) is a single-table lookup, matching the store style elsewhere.
+    name: 'team_members',
+    columns: [
+      { name: 'team_id', kind: 'text', notNull: true },
+      { name: 'org', kind: 'text', notNull: true },
+      { name: 'agent', kind: 'text', notNull: true },
+      { name: 'created_at', kind: 'ts', notNull: true },
+    ],
+    primaryKey: ['team_id', 'agent'],
+    indexes: [{ name: 'team_members_org_agent_idx', columns: ['org', 'agent'] }],
+  },
+  {
+    name: 'repo_collaborators',
+    columns: [
+      { name: 'repo', kind: 'text', notNull: true },
+      { name: 'agent', kind: 'text', notNull: true },
+      { name: 'permission', kind: 'text', notNull: true },
+      { name: 'created_at', kind: 'ts', notNull: true },
+    ],
+    primaryKey: ['repo', 'agent'],
+    indexes: [{ name: 'repo_collab_repo_idx', columns: ['repo', 'created_at'] }],
+  },
 ];

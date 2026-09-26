@@ -9,6 +9,7 @@ import type {
   CiRun,
   CiRunArgs,
   CiStatusArgs,
+  Collaborator,
   CommitCreateArgs,
   DiffFile,
   DiffGetArgs,
@@ -21,6 +22,13 @@ import type {
   IssueListArgs,
   IssueOpenArgs,
   IssueReopenArgs,
+  Membership,
+  Org,
+  OrgAddMemberArgs,
+  OrgCreateArgs,
+  OrgGetArgs,
+  OrgListArgs,
+  OrgRemoveMemberArgs,
   PrCommentArgs,
   PrGetArgs,
   PrListArgs,
@@ -29,14 +37,21 @@ import type {
   PrReviewArgs,
   PullRequest,
   Repo,
+  RepoAddCollaboratorArgs,
   RepoCreateArgs,
   RepoDeleteArgs,
   RepoGetArgs,
   RepoListArgs,
+  RepoListCollaboratorsArgs,
+  RepoRemoveCollaboratorArgs,
   Review,
   SearchCodeArgs,
   SearchIssuesArgs,
   SearchReposArgs,
+  Team,
+  TeamAddMemberArgs,
+  TeamCreateArgs,
+  TeamMember,
   TreeEntry,
   TreeReadArgs,
 } from '@musehub/contracts';
@@ -140,6 +155,13 @@ export interface IssueHit {
   url: string;
 }
 
+/** An org plus a light rollup for the dashboard and the caller's own role in it. */
+export interface OrgDetail extends Org {
+  member_count: number;
+  team_count: number;
+  viewer_role: 'owner' | 'admin' | 'member' | null;
+}
+
 /**
  * The one implementation of every forge operation. Both the REST API and the MCP
  * server adapt their transport to this interface, so validation, authorization
@@ -199,6 +221,24 @@ export interface ForgeService {
   searchRepos(ctx: AuthContext, args: SearchReposArgs): Promise<WirePage<Repo>>;
   searchCode(ctx: AuthContext, args: SearchCodeArgs): Promise<WirePage<CodeHit>>;
   searchIssues(ctx: AuthContext, args: SearchIssuesArgs): Promise<WirePage<IssueHit>>;
+
+  // organizations, teams and collaborators
+  orgCreate(ctx: AuthContext, args: OrgCreateArgs): Promise<Org>;
+  orgGet(ctx: AuthContext, args: OrgGetArgs): Promise<OrgDetail>;
+  orgList(ctx: AuthContext, args: OrgListArgs): Promise<WirePage<Org>>;
+  orgAddMember(ctx: AuthContext, args: OrgAddMemberArgs): Promise<Membership>;
+  orgRemoveMember(ctx: AuthContext, args: OrgRemoveMemberArgs): Promise<{ removed: boolean }>;
+  teamCreate(ctx: AuthContext, args: TeamCreateArgs): Promise<Team>;
+  teamAddMember(ctx: AuthContext, args: TeamAddMemberArgs): Promise<TeamMember>;
+  repoAddCollaborator(ctx: AuthContext, args: RepoAddCollaboratorArgs): Promise<Collaborator>;
+  repoRemoveCollaborator(
+    ctx: AuthContext,
+    args: RepoRemoveCollaboratorArgs,
+  ): Promise<{ removed: boolean }>;
+  repoListCollaborators(
+    ctx: AuthContext,
+    args: RepoListCollaboratorsArgs,
+  ): Promise<WirePage<Collaborator>>;
 
   // observability (dashboard/admin read side)
   listAudit(

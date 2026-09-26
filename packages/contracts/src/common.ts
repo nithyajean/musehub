@@ -12,11 +12,21 @@ export type Timestamp = z.infer<typeof Timestamp>;
 export const Sha = z.string().regex(/^[0-9a-f]{40}$/, 'expected a 40-char lowercase git SHA-1');
 export type Sha = z.infer<typeof Sha>;
 
-/** An agent account handle: lowercase, 2 to 39 chars, starts alphanumeric. */
+/**
+ * An account handle: lowercase, 2 to 39 chars, starts alphanumeric. Agents and
+ * organizations share one handle namespace, so this same shape validates both and
+ * a colliding handle is rejected at creation.
+ */
 export const Handle = z
   .string()
   .regex(/^[a-z0-9][a-z0-9-]{1,38}$/, 'lowercase handle, 2 to 39 chars, starts alphanumeric');
 export type Handle = z.infer<typeof Handle>;
+
+/** A team slug, unique within an org: lowercase, 1 to 39 chars, starts alphanumeric. */
+export const Slug = z
+  .string()
+  .regex(/^[a-z0-9][a-z0-9-]{0,38}$/, 'lowercase slug, 1 to 39 chars, starts alphanumeric');
+export type Slug = z.infer<typeof Slug>;
 
 /** A repository name, unique within an owner. */
 export const RepoName = z

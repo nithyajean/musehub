@@ -34,6 +34,101 @@ const SHA_B = 'b'.repeat(40);
 
 // PLACEHOLDER_APPEND
 
+describe('OrgStore', () => {
+  it('creates, reads by handle, reports taken, and lists by member', async () => {
+    const org = await stores.orgs.create({ handle: 'acme', displayName: 'Acme Co' });
+    expect(org.id).toMatch(/^org_/);
+    expect(await stores.orgs.getByHandle('acme')).toEqual(org);
+    expect(await stores.orgs.handleTaken('acme')).toBe(true);
+    expect(await stores.orgs.handleTaken('ghost')).toBe(false);
+
+    await stores.orgs.create({ handle: 'globex', displayName: null });
+    await stores.orgMembers.upsert('acme', 'alice', 'owner');
+    await stores.orgMembers.upsert('globex', 'alice', 'member');
+    await stores.orgMembers.upsert('acme', 'bob', 'member');
+
+    const mine = await stores.orgs.listByMember('alice', { limit: 50 });
+    expect(mine.total).toBe(2);
+    expect(mine.items.map((o) => o.handle).sort()).toEqual(['acme', 'globex']);
+
+    const bobs = await stores.orgs.listByMember('bob', { limit: 50 });
+    expect(bobs.items.map((o) => o.handle)).toEqual(['acme']);
+  });
+});
+
+describe('OrgMemberStore', () => {
+  it('upserts a role, reads it back, lists and removes', async () => {
+    await stores.orgs.create({ handle: 'acme', displayName: null });
+    const first = await stores.orgMembers.upsert('acme', 'alice', 'member');
+    expect(first.role).toBe('member');
+    const promoted = await stores.orgMembers.upsert('acme', 'alice', 'admin');
+    expect(promoted.role).toBe('admin');
+    expect((await stores.orgMembers.get('acme', 'alice'))?.role).toBe('admin');
+
+    await stores.orgMembers.upsert('acme', 'bob', 'member');
+    const page = await stores.orgMembers.listByOrg('acme', { limit: 50 });
+    expect(page.total).toBe(2);
+    expect(page.items.map((m) => m.agent)).toEqual(['alice', 'bob']);
+
+    expect(await stores.orgMembers.remove('acme', 'bob')).toBe(true);
+    expect(await stores.orgMembers.remove('acme', 'bob')).toBe(false);
+    expect(await stores.orgMembers.get('acme', 'bob')).toBeNull();
+  });
+});
+
+describe('TeamStore and TeamMemberStore', () => {
+  beforeEach(async () => {
+    await stores.orgs.create({ handle: 'acme', displayName: null });
+  });
+
+  it('creates a team, reads it, and lists by org', async () => {
+    const team = await stores.teams.create({ org: 'acme', slug: 'core', name: 'Core' });
+    expect(team.id).toMatch(/^team_/);
+    expect(await stores.teams.get('acme', 'core')).toEqual(team);
+    await stores.teams.create({ org: 'acme', slug: 'infra', name: 'Infra' });
+    const page = await stores.teams.listByOrg('acme', { limit: 50 });
+    expect(page.total).toBe(2);
+    expect(page.items.map((t) => t.slug)).toEqual(['core', 'infra']);
+  });
+
+  it('adds members idempotently and answers the any-team check per org', async () => {
+    await stores.teams.create({ org: 'acme', slug: 'core', name: 'Core' });
+    expect(await stores.teamMembers.isMemberOfAnyTeam('acme', 'alice')).toBe(false);
+    const added = await stores.teamMembers.add('acme', 'core', 'alice');
+    expect(added.team).toBe('core');
+    // Adding again is a no-op, not a duplicate.
+    await stores.teamMembers.add('acme', 'core', 'alice');
+    expect(await stores.teamMembers.listByTeam('acme', 'core')).toHaveLength(1);
+    expect(await stores.teamMembers.isMemberOfAnyTeam('acme', 'alice')).toBe(true);
+    expect(await stores.teamMembers.isMemberOfAnyTeam('acme', 'bob')).toBe(false);
+
+    expect(await stores.teamMembers.remove('acme', 'core', 'alice')).toBe(true);
+    expect(await stores.teamMembers.isMemberOfAnyTeam('acme', 'alice')).toBe(false);
+  });
+});
+
+describe('CollaboratorStore', () => {
+  const repo = 'acme/forge';
+
+  it('grants, updates, reads, lists and revokes a collaborator', async () => {
+    const grant = await stores.collaborators.upsert(repo, 'alice', 'read');
+    expect(grant.permission).toBe('read');
+    const bumped = await stores.collaborators.upsert(repo, 'alice', 'write');
+    expect(bumped.permission).toBe('write');
+    expect((await stores.collaborators.get(repo, 'alice'))?.permission).toBe('write');
+
+    clock.advance(1000);
+    await stores.collaborators.upsert(repo, 'bob', 'admin');
+    const page = await stores.collaborators.listByRepo(repo, { limit: 50 });
+    expect(page.total).toBe(2);
+    expect(page.items.map((c) => c.agent)).toEqual(['alice', 'bob']);
+
+    expect(await stores.collaborators.remove(repo, 'alice')).toBe(true);
+    expect(await stores.collaborators.remove(repo, 'alice')).toBe(false);
+    expect(await stores.collaborators.get(repo, 'alice')).toBeNull();
+  });
+});
+
 describe('dialect detection and helpers', () => {
   it('routes urls to the right driver', () => {
     expect(isSqliteUrl(':memory:')).toBe(true);

@@ -17,19 +17,29 @@ import type {
   IssueListArgs,
   IssueOpenArgs,
   IssueReopenArgs,
+  OrgAddMemberArgs,
+  OrgCreateArgs,
+  OrgGetArgs,
+  OrgListArgs,
+  OrgRemoveMemberArgs,
   PrCommentArgs,
   PrGetArgs,
   PrListArgs,
   PrMergeArgs,
   PrOpenArgs,
   PrReviewArgs,
+  RepoAddCollaboratorArgs,
   RepoCreateArgs,
   RepoDeleteArgs,
   RepoGetArgs,
   RepoListArgs,
+  RepoListCollaboratorsArgs,
+  RepoRemoveCollaboratorArgs,
   SearchCodeArgs,
   SearchIssuesArgs,
   SearchReposArgs,
+  TeamAddMemberArgs,
+  TeamCreateArgs,
   ToolName,
   TreeReadArgs,
 } from '@musehub/contracts';
@@ -119,6 +129,37 @@ export const TOOL_OPS: Record<ToolName, ToolOp> = {
   'forge.search_issues': {
     auth: true,
     invoke: (f, ctx, a) => f.searchIssues(ctx!, a as SearchIssuesArgs),
+  },
+  'forge.org_create': { auth: true, invoke: (f, ctx, a) => f.orgCreate(ctx!, a as OrgCreateArgs) },
+  'forge.org_get': { auth: true, invoke: (f, ctx, a) => f.orgGet(ctx!, a as OrgGetArgs) },
+  'forge.org_list': { auth: true, invoke: (f, ctx, a) => f.orgList(ctx!, a as OrgListArgs) },
+  'forge.org_add_member': {
+    auth: true,
+    invoke: (f, ctx, a) => f.orgAddMember(ctx!, a as OrgAddMemberArgs),
+  },
+  'forge.org_remove_member': {
+    auth: true,
+    invoke: (f, ctx, a) => f.orgRemoveMember(ctx!, a as OrgRemoveMemberArgs),
+  },
+  'forge.team_create': {
+    auth: true,
+    invoke: (f, ctx, a) => f.teamCreate(ctx!, a as TeamCreateArgs),
+  },
+  'forge.team_add_member': {
+    auth: true,
+    invoke: (f, ctx, a) => f.teamAddMember(ctx!, a as TeamAddMemberArgs),
+  },
+  'forge.repo_add_collaborator': {
+    auth: true,
+    invoke: (f, ctx, a) => f.repoAddCollaborator(ctx!, a as RepoAddCollaboratorArgs),
+  },
+  'forge.repo_remove_collaborator': {
+    auth: true,
+    invoke: (f, ctx, a) => f.repoRemoveCollaborator(ctx!, a as RepoRemoveCollaboratorArgs),
+  },
+  'forge.repo_list_collaborators': {
+    auth: true,
+    invoke: (f, ctx, a) => f.repoListCollaborators(ctx!, a as RepoListCollaboratorsArgs),
   },
 };
 

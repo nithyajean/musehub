@@ -2,13 +2,18 @@ import type {
   Agent,
   Branch,
   CiRun,
+  Collaborator,
   EnrollArgs,
   Issue,
   IssueOpenArgs,
+  Membership,
+  Org,
   PullRequest,
   Repo,
   RepoGetArgs,
   Review,
+  Team,
+  TeamMember,
 } from '@musehub/contracts';
 import { ForgeError } from '@musehub/contracts';
 import type {
@@ -16,6 +21,7 @@ import type {
   CodeHit,
   ForgeService,
   IssueHit,
+  OrgDetail,
   PrDetail,
   RepoDetail,
 } from '@musehub/core';
@@ -119,6 +125,27 @@ const issueHit: IssueHit = {
   title: 'Bug',
   state: 'open',
   url: issue.url,
+};
+const org: Org = { id: 'org_1', handle: 'acme', display_name: 'Acme', created_at: TS };
+const orgDetail: OrgDetail = { ...org, member_count: 1, team_count: 0, viewer_role: 'owner' };
+const membership: Membership = {
+  org: 'acme',
+  agent: 'checkout-bot',
+  role: 'member',
+  created_at: TS,
+};
+const team: Team = { id: 'team_1', org: 'acme', slug: 'core', name: 'Core', created_at: TS };
+const teamMember: TeamMember = {
+  org: 'acme',
+  team: 'core',
+  agent: 'checkout-bot',
+  created_at: TS,
+};
+const collaborator: Collaborator = {
+  repo: 'checkout-bot/checkout',
+  agent: 'nova',
+  permission: 'write',
+  created_at: TS,
 };
 
 interface Spy {
@@ -259,6 +286,36 @@ function makeForge(): { forge: ForgeService; spy: Spy } {
     },
     async searchIssues() {
       return page([issueHit]);
+    },
+    async orgCreate() {
+      return org;
+    },
+    async orgGet() {
+      return orgDetail;
+    },
+    async orgList() {
+      return page([org]);
+    },
+    async orgAddMember() {
+      return membership;
+    },
+    async orgRemoveMember() {
+      return { removed: true };
+    },
+    async teamCreate() {
+      return team;
+    },
+    async teamAddMember() {
+      return teamMember;
+    },
+    async repoAddCollaborator() {
+      return collaborator;
+    },
+    async repoRemoveCollaborator() {
+      return { removed: true };
+    },
+    async repoListCollaborators() {
+      return page([collaborator]);
     },
     async listAudit() {
       return page([]);
@@ -416,7 +473,51 @@ describe('@musehub/api', () => {
     expect(doc.paths['/v1/enroll']).toBeTruthy();
     expect(doc.paths['/v1/repos/{owner}/{repo}']).toBeTruthy();
     expect(doc.paths['/v1/repos/{owner}/{repo}/pulls/{number}/merge']).toBeTruthy();
+    expect(doc.paths['/v1/orgs']).toBeTruthy();
+    expect(doc.paths['/v1/orgs/{org}/members']).toBeTruthy();
+    expect(doc.paths['/v1/repos/{owner}/{repo}/collaborators']).toBeTruthy();
     expect(Object.keys(doc.paths).length).toBeGreaterThan(20);
+  });
+
+  it('creates an org over POST /v1/orgs', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/v1/orgs',
+      headers: bearer(GOOD),
+      payload: { handle: 'acme', display_name: 'Acme' },
+    });
+    expect(res.statusCode).toBe(201);
+    expect(res.json().handle).toBe('acme');
+  });
+
+  it('reassembles path plus body for an org member add', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/v1/orgs/acme/members',
+      headers: bearer(GOOD),
+      payload: { agent: 'nova', role: 'admin' },
+    });
+    expect(res.statusCode).toBe(201);
+    expect(res.json().org).toBe('acme');
+  });
+
+  it('lists and adds repo collaborators from the repo path', async () => {
+    const list = await app.inject({
+      method: 'GET',
+      url: '/v1/repos/checkout-bot/checkout/collaborators',
+      headers: bearer(GOOD),
+    });
+    expect(list.statusCode).toBe(200);
+    expect(list.json().items[0].agent).toBe('nova');
+
+    const add = await app.inject({
+      method: 'POST',
+      url: '/v1/repos/checkout-bot/checkout/collaborators',
+      headers: bearer(GOOD),
+      payload: { agent: 'nova', permission: 'write' },
+    });
+    expect(add.statusCode).toBe(201);
+    expect(add.json().permission).toBe('write');
   });
 
   describe('git smart-HTTP', () => {

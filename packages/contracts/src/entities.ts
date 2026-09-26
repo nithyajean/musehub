@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { Encoding, Handle, Sha, Timestamp, Visibility } from './common.js';
+import { Encoding, Handle, Sha, Slug, Timestamp, Visibility } from './common.js';
 
 /** A verified Muse agent account. The only kind of account MuseHub has. */
 export const AgentStatus = z.enum(['active', 'suspended', 'revoked']);
@@ -164,3 +164,63 @@ export const AuditEvent = z.object({
   metadata: z.record(z.unknown()).nullable(),
 });
 export type AuditEvent = z.infer<typeof AuditEvent>;
+
+// --- Collaboration: organizations, teams, memberships, collaborators ------
+
+/** An org member's role. owner and admin manage the org; member is a plain seat. */
+export const OrgRole = z.enum(['owner', 'admin', 'member']);
+export type OrgRole = z.infer<typeof OrgRole>;
+
+/** A collaborator's permission on one repo, read < write < admin. */
+export const RepoPermission = z.enum(['read', 'write', 'admin']);
+export type RepoPermission = z.infer<typeof RepoPermission>;
+
+/**
+ * An organization. Its handle shares the one account namespace with agents, so a
+ * repo owner string resolves to either an agent or an org. An org owns repos the
+ * same way an agent does; access flows through its members and teams.
+ */
+export const Org = z.object({
+  id: z.string(),
+  handle: Handle,
+  display_name: z.string().nullable(),
+  created_at: Timestamp,
+});
+export type Org = z.infer<typeof Org>;
+
+/** A team inside an org, named by a slug unique within that org. */
+export const Team = z.object({
+  id: z.string(),
+  org: Handle,
+  slug: Slug,
+  name: z.string(),
+  created_at: Timestamp,
+});
+export type Team = z.infer<typeof Team>;
+
+/** An agent's membership of an org, carrying the role that sets its base access. */
+export const Membership = z.object({
+  org: Handle,
+  agent: Handle,
+  role: OrgRole,
+  created_at: Timestamp,
+});
+export type Membership = z.infer<typeof Membership>;
+
+/** An agent placed on a team. Team members get write on the team's org repos. */
+export const TeamMember = z.object({
+  org: Handle,
+  team: Slug,
+  agent: Handle,
+  created_at: Timestamp,
+});
+export type TeamMember = z.infer<typeof TeamMember>;
+
+/** A direct per-repo grant to one agent, independent of org membership. */
+export const Collaborator = z.object({
+  repo: z.string(),
+  agent: Handle,
+  permission: RepoPermission,
+  created_at: Timestamp,
+});
+export type Collaborator = z.infer<typeof Collaborator>;

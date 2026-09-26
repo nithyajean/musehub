@@ -16,6 +16,7 @@ import type {
   CiRun,
   CiRunArgs,
   CiStatusArgs,
+  Collaborator,
   CommitCreateArgs,
   DiffGetArgs,
   EnrollArgs,
@@ -27,6 +28,13 @@ import type {
   IssueListArgs,
   IssueOpenArgs,
   IssueReopenArgs,
+  Membership,
+  Org,
+  OrgAddMemberArgs,
+  OrgCreateArgs,
+  OrgGetArgs,
+  OrgListArgs,
+  OrgRemoveMemberArgs,
   PrCommentArgs,
   PrGetArgs,
   PrListArgs,
@@ -35,14 +43,21 @@ import type {
   PrReviewArgs,
   PullRequest,
   Repo,
+  RepoAddCollaboratorArgs,
   RepoCreateArgs,
   RepoDeleteArgs,
   RepoGetArgs,
   RepoListArgs,
+  RepoListCollaboratorsArgs,
+  RepoRemoveCollaboratorArgs,
   Review,
   SearchCodeArgs,
   SearchIssuesArgs,
   SearchReposArgs,
+  Team,
+  TeamAddMemberArgs,
+  TeamCreateArgs,
+  TeamMember,
   TreeReadArgs,
 } from '@musehub/contracts';
 import { normalizeRepoSpec } from '@musehub/core';
@@ -58,25 +73,36 @@ import type {
   ForgeService,
   IssueHit,
   MergeResult,
+  OrgDetail,
   Ports,
   PrDetail,
   RepoDetail,
   TreeResult,
   WirePage,
 } from '@musehub/core';
-import { type RepoRef, loadRepoForRead, loadRepoForWrite, toWireRepo } from './authz.js';
+import {
+  type RepoRef,
+  loadRepoForAdmin,
+  loadRepoForRead,
+  loadRepoForWrite,
+  toWireRepo,
+} from './authz.js';
 import {
   branchExists,
   branchNotFound,
   checksFailed,
   checksPending,
   ciRunNotFound,
+  collaborationUnavailable,
   confirmationMismatch,
   fileNotFound,
   forbiddenHuman,
+  forbiddenOrg,
   forbiddenRepo,
+  handleTaken,
   issueNotFound,
   mergeConflict,
+  orgNotFound,
   prExists,
   prNotFound,
   repoExists,
@@ -84,6 +110,7 @@ import {
   reviewRequired,
   staleBlob,
   staleRef,
+  teamNotFound,
   validationFailed,
 } from './errors.js';
 import { mergeableState, reviewState, summarizeChecks } from './merge-gate.js';
@@ -131,11 +158,48 @@ class ForgeServiceImpl implements ForgeService {
     const base = `muse-${tail.slice(-8) || 'agent'}`;
     let candidate = base;
     let n = 1;
-    while (await this.ports.agents.handleTaken(candidate)) {
+    while (await this.isHandleTaken(candidate)) {
       n += 1;
       candidate = `${base}-${n}`;
     }
     return candidate;
+  }
+
+  /** A handle is taken when either an agent or an org already holds it (one namespace). */
+  private async isHandleTaken(handle: string): Promise<boolean> {
+    if (await this.ports.agents.handleTaken(handle)) {
+      return true;
+    }
+    if (this.ports.orgs && (await this.ports.orgs.handleTaken(handle))) {
+      return true;
+    }
+    return false;
+  }
+
+  /** The collaboration stores, or a clear error when the server was built without them. */
+  private collab() {
+    const { orgs, orgMembers, teams, teamMembers, collaborators } = this.ports;
+    if (!orgs || !orgMembers || !teams || !teamMembers || !collaborators) {
+      throw collaborationUnavailable();
+    }
+    return { orgs, orgMembers, teams, teamMembers, collaborators };
+  }
+
+  /** Load an org by handle or raise org-not-found. */
+  private async requireOrg(handle: string): Promise<Org> {
+    const org = await this.collab().orgs.getByHandle(handle);
+    if (!org) {
+      throw orgNotFound(handle);
+    }
+    return org;
+  }
+
+  /** Require the caller to be an owner or admin of the org. */
+  private async requireOrgAdmin(ctx: AuthContext, org: string): Promise<void> {
+    const membership = await this.collab().orgMembers.get(org, ctx.agent.handle);
+    if (!membership || (membership.role !== 'owner' && membership.role !== 'admin')) {
+      throw forbiddenOrg(org);
+    }
   }
 
   // --- onboarding ---------------------------------------------------------
@@ -173,7 +237,7 @@ class ForgeServiceImpl implements ForgeService {
 
     let handle: string;
     if (args.handle) {
-      if (await this.ports.agents.handleTaken(args.handle)) {
+      if (await this.isHandleTaken(args.handle)) {
         throw validationFailed(
           `Handle '${args.handle}' is already taken.`,
           'Choose another handle, or omit it to get a generated one.',
@@ -212,7 +276,13 @@ class ForgeServiceImpl implements ForgeService {
     ctx: AuthContext,
     args: RepoCreateArgs,
   ): Promise<Repo & { unchanged?: boolean }> {
-    const owner = ctx.agent.handle;
+    const owner = args.owner ?? ctx.agent.handle;
+    // Creating under an org: the org must exist and the caller must administer it.
+    // Creating under one's own handle is the default and needs no org lookup.
+    if (owner !== ctx.agent.handle) {
+      await this.requireOrg(owner);
+      await this.requireOrgAdmin(ctx, owner);
+    }
     const fullName = `${owner}/${args.name}`;
     const existing = await this.ports.repos.get(owner, args.name);
     if (existing) {
@@ -259,6 +329,7 @@ class ForgeServiceImpl implements ForgeService {
       empty = false;
     }
     await this.audit(ctx.agent.handle, 'repo.create', fullName, {
+      owner,
       visibility: args.visibility,
       auto_init: args.auto_init,
     });
@@ -922,6 +993,166 @@ class ForgeServiceImpl implements ForgeService {
 
   searchIssues(ctx: AuthContext, args: SearchIssuesArgs): Promise<WirePage<IssueHit>> {
     return searchIssues(this.ports, ctx, args);
+  }
+
+  // --- organizations, teams and collaborators -----------------------------
+
+  async orgCreate(ctx: AuthContext, args: OrgCreateArgs): Promise<Org> {
+    const { orgs, orgMembers } = this.collab();
+    if (await this.isHandleTaken(args.handle)) {
+      throw handleTaken(args.handle);
+    }
+    const org = await orgs.create({
+      handle: args.handle,
+      displayName: args.display_name ?? null,
+    });
+    // The creator is the first owner, so an org is never left without an admin.
+    await orgMembers.upsert(org.handle, ctx.agent.handle, 'owner');
+    await this.audit(ctx.agent.handle, 'org.create', org.handle, {
+      display_name: args.display_name ?? null,
+    });
+    return org;
+  }
+
+  async orgGet(ctx: AuthContext, args: OrgGetArgs): Promise<OrgDetail> {
+    const { orgMembers, teams } = this.collab();
+    const org = await this.requireOrg(args.org);
+    const members = await orgMembers.listByOrg(org.handle, { limit: 100 });
+    const teamPage = await teams.listByOrg(org.handle, { limit: 100 });
+    const mine = await orgMembers.get(org.handle, ctx.agent.handle);
+    return {
+      ...org,
+      member_count: members.total ?? members.items.length,
+      team_count: teamPage.total ?? teamPage.items.length,
+      viewer_role: mine ? mine.role : null,
+    };
+  }
+
+  async orgList(ctx: AuthContext, args: OrgListArgs): Promise<WirePage<Org>> {
+    const { orgs } = this.collab();
+    const agent = args.agent ?? ctx.agent.handle;
+    const page = await orgs.listByMember(agent, {
+      ...(args.cursor !== undefined ? { cursor: args.cursor } : {}),
+      limit: args.limit,
+    });
+    return toWirePage(page);
+  }
+
+  async orgAddMember(ctx: AuthContext, args: OrgAddMemberArgs): Promise<Membership> {
+    const { orgMembers } = this.collab();
+    await this.requireOrg(args.org);
+    await this.requireOrgAdmin(ctx, args.org);
+    await this.requireEnrolledAgent(args.agent);
+    const membership = await orgMembers.upsert(args.org, args.agent, args.role);
+    await this.audit(ctx.agent.handle, 'org.add_member', args.org, {
+      agent: args.agent,
+      role: args.role,
+    });
+    return membership;
+  }
+
+  async orgRemoveMember(
+    ctx: AuthContext,
+    args: OrgRemoveMemberArgs,
+  ): Promise<{ removed: boolean }> {
+    const { orgMembers } = this.collab();
+    await this.requireOrg(args.org);
+    await this.requireOrgAdmin(ctx, args.org);
+    const removed = await orgMembers.remove(args.org, args.agent);
+    if (removed) {
+      await this.audit(ctx.agent.handle, 'org.remove_member', args.org, { agent: args.agent });
+    }
+    return { removed };
+  }
+
+  async teamCreate(ctx: AuthContext, args: TeamCreateArgs): Promise<Team> {
+    const { teams } = this.collab();
+    await this.requireOrg(args.org);
+    await this.requireOrgAdmin(ctx, args.org);
+    const existing = await teams.get(args.org, args.slug);
+    if (existing) {
+      throw validationFailed(
+        `Team '${args.org}/${args.slug}' already exists.`,
+        'Choose another slug, or add members to the existing team.',
+        { org: args.org, team: args.slug },
+      );
+    }
+    const team = await teams.create({ org: args.org, slug: args.slug, name: args.name });
+    await this.audit(ctx.agent.handle, 'team.create', `${args.org}/${args.slug}`, {
+      name: args.name,
+    });
+    return team;
+  }
+
+  async teamAddMember(ctx: AuthContext, args: TeamAddMemberArgs): Promise<TeamMember> {
+    const { teams, teamMembers } = this.collab();
+    await this.requireOrg(args.org);
+    await this.requireOrgAdmin(ctx, args.org);
+    const team = await teams.get(args.org, args.team);
+    if (!team) {
+      throw teamNotFound(args.org, args.team);
+    }
+    await this.requireEnrolledAgent(args.agent);
+    const member = await teamMembers.add(args.org, args.team, args.agent);
+    await this.audit(ctx.agent.handle, 'team.add_member', `${args.org}/${args.team}`, {
+      agent: args.agent,
+    });
+    return member;
+  }
+
+  async repoAddCollaborator(
+    ctx: AuthContext,
+    args: RepoAddCollaboratorArgs,
+  ): Promise<Collaborator> {
+    const { collaborators } = this.collab();
+    const ref = await loadRepoForAdmin(this.ports, ctx, args.repo);
+    await this.requireEnrolledAgent(args.agent);
+    const grant = await collaborators.upsert(ref.fullName, args.agent, args.permission);
+    await this.audit(ctx.agent.handle, 'repo.add_collaborator', ref.fullName, {
+      agent: args.agent,
+      permission: args.permission,
+    });
+    return grant;
+  }
+
+  async repoRemoveCollaborator(
+    ctx: AuthContext,
+    args: RepoRemoveCollaboratorArgs,
+  ): Promise<{ removed: boolean }> {
+    const { collaborators } = this.collab();
+    const ref = await loadRepoForAdmin(this.ports, ctx, args.repo);
+    const removed = await collaborators.remove(ref.fullName, args.agent);
+    if (removed) {
+      await this.audit(ctx.agent.handle, 'repo.remove_collaborator', ref.fullName, {
+        agent: args.agent,
+      });
+    }
+    return { removed };
+  }
+
+  async repoListCollaborators(
+    ctx: AuthContext,
+    args: RepoListCollaboratorsArgs,
+  ): Promise<WirePage<Collaborator>> {
+    const { collaborators } = this.collab();
+    const ref = await loadRepoForRead(this.ports, ctx, args.repo);
+    const page = await collaborators.listByRepo(ref.fullName, {
+      ...(args.cursor !== undefined ? { cursor: args.cursor } : {}),
+      limit: args.limit,
+    });
+    return toWirePage(page);
+  }
+
+  /** The target of a membership or collaborator grant must be an enrolled agent. */
+  private async requireEnrolledAgent(handle: string): Promise<void> {
+    const agent = await this.ports.agents.getByHandle(handle);
+    if (!agent) {
+      throw validationFailed(
+        `Agent '${handle}' is not enrolled.`,
+        'Only an enrolled agent can be granted access. Check the handle.',
+        { agent: handle },
+      );
+    }
   }
 
   // --- observability ------------------------------------------------------

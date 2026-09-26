@@ -19,13 +19,22 @@ import {
   IssueCommentBody,
   IssueListQuery,
   IssueOpenBody,
+  OrgAddMemberBody,
+  OrgCreateBody,
+  OrgListQuery,
+  OrgMemberParams,
+  OrgParams,
+  OrgTeamParams,
   PrCommentBody,
   PrListQuery,
   PrMergeBody,
   PrOpenBody,
   PrReviewBody,
+  RepoAddCollaboratorBody,
+  RepoCollabParams,
   RepoDeleteBody,
   RepoFileParams,
+  RepoListCollaboratorsQuery,
   RepoListQuery,
   RepoNumberParams,
   RepoParams,
@@ -33,6 +42,8 @@ import {
   SearchCodeQuery,
   SearchIssuesQuery,
   SearchReposQuery,
+  TeamAddMemberBody,
+  TeamCreateBody,
   TreeReadQuery,
 } from './http-schemas.js';
 
@@ -385,5 +396,120 @@ export function registerRestRoutes(app: ZodApp, deps: BuildApiDeps): void {
     '/v1/search/issues',
     { preHandler: requireAuth, schema: { querystring: SearchIssuesQuery, tags: TAGS } },
     async (request) => forge.searchIssues(authOf(request), request.query),
+  );
+
+  // --- Organizations, teams and collaborators -----------------------------
+  app.post(
+    '/v1/orgs',
+    { preHandler: requireAuth, schema: { body: OrgCreateBody, tags: TAGS } },
+    async (request, reply) => {
+      const result = await forge.orgCreate(authOf(request), request.body);
+      reply.code(201);
+      return result;
+    },
+  );
+
+  app.get(
+    '/v1/orgs',
+    { preHandler: requireAuth, schema: { querystring: OrgListQuery, tags: TAGS } },
+    async (request) => forge.orgList(authOf(request), request.query),
+  );
+
+  app.get(
+    '/v1/orgs/:org',
+    { preHandler: requireAuth, schema: { params: OrgParams, tags: TAGS } },
+    async (request) => forge.orgGet(authOf(request), { org: request.params.org }),
+  );
+
+  app.post(
+    '/v1/orgs/:org/members',
+    { preHandler: requireAuth, schema: { params: OrgParams, body: OrgAddMemberBody, tags: TAGS } },
+    async (request, reply) => {
+      const result = await forge.orgAddMember(authOf(request), {
+        org: request.params.org,
+        ...request.body,
+      });
+      reply.code(201);
+      return result;
+    },
+  );
+
+  app.delete(
+    '/v1/orgs/:org/members/:agent',
+    { preHandler: requireAuth, schema: { params: OrgMemberParams, tags: TAGS } },
+    async (request) =>
+      forge.orgRemoveMember(authOf(request), {
+        org: request.params.org,
+        agent: request.params.agent,
+      }),
+  );
+
+  app.post(
+    '/v1/orgs/:org/teams',
+    { preHandler: requireAuth, schema: { params: OrgParams, body: TeamCreateBody, tags: TAGS } },
+    async (request, reply) => {
+      const result = await forge.teamCreate(authOf(request), {
+        org: request.params.org,
+        ...request.body,
+      });
+      reply.code(201);
+      return result;
+    },
+  );
+
+  app.post(
+    '/v1/orgs/:org/teams/:team/members',
+    {
+      preHandler: requireAuth,
+      schema: { params: OrgTeamParams, body: TeamAddMemberBody, tags: TAGS },
+    },
+    async (request, reply) => {
+      const result = await forge.teamAddMember(authOf(request), {
+        org: request.params.org,
+        team: request.params.team,
+        ...request.body,
+      });
+      reply.code(201);
+      return result;
+    },
+  );
+
+  app.get(
+    '/v1/repos/:owner/:repo/collaborators',
+    {
+      preHandler: requireAuth,
+      schema: { params: RepoParams, querystring: RepoListCollaboratorsQuery, tags: TAGS },
+    },
+    async (request) =>
+      forge.repoListCollaborators(authOf(request), {
+        repo: spec(request.params),
+        ...request.query,
+      }),
+  );
+
+  app.post(
+    '/v1/repos/:owner/:repo/collaborators',
+    {
+      preHandler: requireAuth,
+      schema: { params: RepoParams, body: RepoAddCollaboratorBody, tags: TAGS },
+    },
+    async (request, reply) => {
+      const result = await forge.repoAddCollaborator(authOf(request), {
+        repo: spec(request.params),
+        ...request.body,
+      });
+      reply.code(201);
+      return result;
+    },
+  );
+
+  app.delete(
+    '/v1/repos/:owner/:repo/collaborators/:agent',
+    { preHandler: requireAuth, schema: { params: RepoCollabParams, tags: TAGS } },
+    async (request) =>
+      forge.repoRemoveCollaborator(authOf(request), {
+        repo: `${request.params.owner}/${request.params.repo}`,
+        agent: request.params.agent,
+      }),
   );
 }

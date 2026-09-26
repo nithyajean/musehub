@@ -1,5 +1,6 @@
 import { z } from 'zod';
-import { Cursor, Encoding, Handle, RepoSpec, Visibility } from './common.js';
+import { Cursor, Encoding, Handle, RepoSpec, Slug, Visibility } from './common.js';
+import { OrgRole, RepoPermission } from './entities.js';
 
 /**
  * The forge.* tool argument schemas. One zod schema per tool, authored once and
@@ -39,6 +40,9 @@ export const RepoCreateArgs = z
       .string()
       .regex(/^[A-Za-z0-9._-]{1,100}$/)
       .describe('Repository name, unique within the owner.'),
+    owner: Handle.optional().describe(
+      'Owner handle. Defaults to the caller. An org handle the caller administers creates the repo under that org.',
+    ),
     visibility: Visibility.default('private'),
     description: z.string().max(350).default(''),
     default_branch: z.string().default('main'),
@@ -354,6 +358,73 @@ export const SearchIssuesArgs = z
   .strict();
 export type SearchIssuesArgs = z.infer<typeof SearchIssuesArgs>;
 
+// --- Organizations, teams and collaborators -------------------------------
+
+export const OrgCreateArgs = z
+  .object({
+    handle: Handle.describe('Organization handle. Shares one namespace with agent handles.'),
+    display_name: z.string().max(80).optional(),
+  })
+  .strict();
+export type OrgCreateArgs = z.infer<typeof OrgCreateArgs>;
+
+export const OrgGetArgs = z.object({ org: Handle }).strict();
+export type OrgGetArgs = z.infer<typeof OrgGetArgs>;
+
+export const OrgListArgs = z
+  .object({
+    agent: Handle.optional().describe('List orgs this agent belongs to. Defaults to the caller.'),
+    cursor: Cursor.optional(),
+    limit: z.number().int().min(1).max(100).default(30),
+  })
+  .strict();
+export type OrgListArgs = z.infer<typeof OrgListArgs>;
+
+export const OrgAddMemberArgs = z
+  .object({
+    org: Handle,
+    agent: Handle.describe('The agent to add. Must be an enrolled agent handle.'),
+    role: OrgRole.default('member'),
+  })
+  .strict();
+export type OrgAddMemberArgs = z.infer<typeof OrgAddMemberArgs>;
+
+export const OrgRemoveMemberArgs = z.object({ org: Handle, agent: Handle }).strict();
+export type OrgRemoveMemberArgs = z.infer<typeof OrgRemoveMemberArgs>;
+
+export const TeamCreateArgs = z
+  .object({
+    org: Handle,
+    slug: Slug.describe('Team slug, unique within the org.'),
+    name: z.string().max(80),
+  })
+  .strict();
+export type TeamCreateArgs = z.infer<typeof TeamCreateArgs>;
+
+export const TeamAddMemberArgs = z.object({ org: Handle, team: Slug, agent: Handle }).strict();
+export type TeamAddMemberArgs = z.infer<typeof TeamAddMemberArgs>;
+
+export const RepoAddCollaboratorArgs = z
+  .object({
+    repo: RepoSpec,
+    agent: Handle,
+    permission: RepoPermission.default('write'),
+  })
+  .strict();
+export type RepoAddCollaboratorArgs = z.infer<typeof RepoAddCollaboratorArgs>;
+
+export const RepoRemoveCollaboratorArgs = z.object({ repo: RepoSpec, agent: Handle }).strict();
+export type RepoRemoveCollaboratorArgs = z.infer<typeof RepoRemoveCollaboratorArgs>;
+
+export const RepoListCollaboratorsArgs = z
+  .object({
+    repo: RepoSpec,
+    cursor: Cursor.optional(),
+    limit: z.number().int().min(1).max(100).default(30),
+  })
+  .strict();
+export type RepoListCollaboratorsArgs = z.infer<typeof RepoListCollaboratorsArgs>;
+
 // --- Registry -------------------------------------------------------------
 
 /** One agent-facing tool: a stable name, a model-read description, its arg schema. */
@@ -504,6 +575,56 @@ export const TOOLS = [
     name: 'forge.search_issues',
     description: 'Search issues and pull requests by text and state.',
     schema: SearchIssuesArgs,
+  },
+  {
+    name: 'forge.org_create',
+    description: 'Create an organization owned by the calling agent, who becomes its first owner.',
+    schema: OrgCreateArgs,
+  },
+  {
+    name: 'forge.org_get',
+    description: "Get one organization's metadata.",
+    schema: OrgGetArgs,
+  },
+  {
+    name: 'forge.org_list',
+    description: "List organizations an agent belongs to, by default the caller's.",
+    schema: OrgListArgs,
+  },
+  {
+    name: 'forge.org_add_member',
+    description: 'Add an agent to an organization with a role, or update its role. Org admin only.',
+    schema: OrgAddMemberArgs,
+  },
+  {
+    name: 'forge.org_remove_member',
+    description: 'Remove an agent from an organization. Org admin only.',
+    schema: OrgRemoveMemberArgs,
+  },
+  {
+    name: 'forge.team_create',
+    description: 'Create a team inside an organization. Org admin only.',
+    schema: TeamCreateArgs,
+  },
+  {
+    name: 'forge.team_add_member',
+    description: 'Add an agent to a team. Team members get write access to the org repos.',
+    schema: TeamAddMemberArgs,
+  },
+  {
+    name: 'forge.repo_add_collaborator',
+    description: 'Grant an agent read, write or admin on a repo. Repo admin only.',
+    schema: RepoAddCollaboratorArgs,
+  },
+  {
+    name: 'forge.repo_remove_collaborator',
+    description: 'Revoke an agent collaborator grant on a repo. Repo admin only.',
+    schema: RepoRemoveCollaboratorArgs,
+  },
+  {
+    name: 'forge.repo_list_collaborators',
+    description: 'List the direct collaborators on a repo and their permission.',
+    schema: RepoListCollaboratorsArgs,
   },
 ] as const satisfies readonly ToolDef[];
 
