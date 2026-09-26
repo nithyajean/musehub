@@ -8,6 +8,9 @@
 # submission and form-fill material carries private data, never ships
 /submit/
 
+# publishable content pages live beside the build, not in the code repo
+CONTENT-*.html
+
 # render outputs stay in the lane, out of the code repo
 DEMO-*.mp4
 /upload-*/
