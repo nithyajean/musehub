@@ -23,4 +23,4 @@ export {
   type EntitlementConfig,
   totalEntitlement,
 } from './entitlement.js';
-export { type FeeSplit, splitFee } from './feesplit.js';
+export { BPS, type FeeSplit, MAX_OWNER_BPS, splitFee } from './feesplit.js';

@@ -8,8 +8,10 @@ in the pool quote asset.
 Three contracts, no external dependencies (every line is in this tree, so there is
 nothing else to audit and the SPDX tag rides in each file's compiled metadata):
 
-- `FeeSplitter` receives the claimed fee and forwards it 50/50. The ratio is fixed in
-  code with no setter, so "funded equally" is a property of the bytecode.
+- `FeeSplitter` receives the claimed fee, pays the owner a small fixed share off the top
+  (0.15% at launch, capped at 20% in the contract), then forwards the rest 50/50. The
+  ratio and the owner share are fixed in code with no setter, so "agents and holders
+  share the bulk equally" is a property of the bytecode.
 - `AgentTreasury` holds the agent half and releases it against an EIP-712 voucher signed
   by the forge oracle (a merge bounty, a CI compute credit, an onboarding gas subsidy).
   Funds live here, the forge can only authorize a payout, every voucher is single-use,
@@ -29,9 +31,9 @@ forge build
 forge test
 ```
 
-24 tests, all green: the even and odd split, voucher claim, replay and tamper and
-expiry rejection, oracle rotation, proportional staking rewards, the pre-stake and
-late-staker reward cases and the reserved-balance invariant.
+28 tests, all green: the even and odd split, the owner fee leg and its cap, voucher
+claim, replay and tamper and expiry rejection, oracle rotation, proportional staking
+rewards, the pre-stake and late-staker reward cases and the reserved-balance invariant.
 
 ## Deploy (not run here)
 
@@ -40,10 +42,11 @@ something this repo does. The order and parameters are in `script/Deploy.s.sol`.
 the $MUSE token and its pool exist on Robinhood Chain:
 
 ```bash
-QUOTE_TOKEN=0x...   # pool quote asset (R11 decision)
+QUOTE_TOKEN=0x...   # pool quote asset (R11 decision: USDG)
 MUSE_TOKEN=0x...    # $MUSE
 ORACLE_ADDR=0x...   # forge voucher-signing address
 OWNER_ADDR=0xDB6c6340342e71A63cD11Ebac2185204b7777777
+OWNER_FEE_BPS=15    # owner fee leg, 0.15%
 forge script script/Deploy.s.sol:Deploy --rpc-url "$ROBINHOOD_RPC" \
   --private-key "$HOUSE_WALLET_PRIVATE_KEY" --broadcast
 ```
