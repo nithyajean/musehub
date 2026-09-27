@@ -13,7 +13,7 @@ import {IERC20} from "../src/lib/Shared.sol";
 //   MUSE_TOKEN     the MUSE token launched via Bankr
 //   ORACLE_ADDR    the forge voucher-signing address (economics signerAddress)
 //   OWNER_ADDR     owner of AgentTreasury and the owner-fee recipient, the house EOA
-//   OWNER_FEE_BPS  the owner share of each distribution, in basis points (15 = 0.15%)
+//   OWNER_FEE_BPS  the owner share of each distribution, in basis points (1500 = 15%)
 //
 // This spends real gas on a live chain, so it is NOT run here. It is the ready
 // command for the operator, after the token and pool exist:

@@ -14,7 +14,7 @@ export const BPS = 10_000n;
 export const MAX_OWNER_BPS = 2_000n;
 
 /** Split a claimed fee: owner share off the top, remainder 50/50. `ownerFeeBps` is in
- *  basis points (15 = 0.15%, the launch value). Reverts the mental model of "trust the
+ *  basis points (1500 = 15%, the launch value). Reverts the mental model of "trust the
  *  operator" into "read the arithmetic": the ratio is fixed and the owner share is capped. */
 export function splitFee(amount: bigint, ownerFeeBps: bigint): FeeSplit {
   if (amount < 0n) throw new Error('negative amount');

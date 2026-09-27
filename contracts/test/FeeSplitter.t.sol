@@ -40,26 +40,26 @@ contract FeeSplitterTest is TestBase {
         assertEq(h, 51);
     }
 
-    function testOwnerTakesFifteenBpsThenSplitsRestEvenly() public {
-        FeeSplitter s = mk(15); // 0.15%
+    function testOwnerTakesFifteenPercentThenSplitsRestEvenly() public {
+        FeeSplitter s = mk(1500); // 15%
         quote.mint(address(s), 100e18);
         (uint256 o, uint256 a, uint256 h) = s.distribute();
-        assertEq(o, 15e16); // 0.15e18
-        assertEq(a, 49_925e15); // 49.925e18
-        assertEq(h, 49_925e15);
+        assertEq(o, 15e18); // 15% off the top
+        assertEq(a, 425e17); // 42.5e18
+        assertEq(h, 425e17);
         assertEq(a, h); // agents and holders still equal on the remainder
         assertEq(o + a + h, 100e18);
-        assertEq(quote.balanceOf(ownerRecipient), 15e16);
+        assertEq(quote.balanceOf(ownerRecipient), 15e18);
     }
 
-    function testOwnerShareRoundsDownRemainderToHolder() public {
-        FeeSplitter s = mk(15);
-        quote.mint(address(s), 101);
+    function testOwnerShareFloorsAndOddRemainderToHolder() public {
+        FeeSplitter s = mk(1500);
+        quote.mint(address(s), 10);
         (uint256 o, uint256 a, uint256 h) = s.distribute();
-        assertEq(o, 0); // 101*15/10000 = 0
-        assertEq(a, 50);
-        assertEq(h, 51);
-        assertEq(o + a + h, 101);
+        assertEq(o, 1); // floor(10 * 1500 / 10000) = 1
+        assertEq(a, 4);
+        assertEq(h, 5); // odd remainder wei to holder
+        assertEq(o + a + h, 10);
     }
 
     function testRevertsOnEmpty() public {

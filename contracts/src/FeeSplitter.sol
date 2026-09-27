@@ -4,12 +4,13 @@ pragma solidity 0.8.28;
 import {IERC20, SafeTransferLib, ReentrancyGuard} from "./lib/Shared.sol";
 
 /// FeeSplitter routes the pool's claimed trading fee, denominated in the pool quote
-/// asset, the instant it lands. The owner takes a small fixed share off the top
-/// (`ownerFeeBps`, 0.15% at launch), then the remainder is split 50/50 between the
+/// asset, the instant it lands. The owner takes a fixed share off the top
+/// (`ownerFeeBps`, 15% at launch), then the remainder is split 50/50 between the
 /// agents that develop on MuseHub and the $MUSE holders that back it. Both the owner
 /// share and the 50/50 split are fixed in code with no setter. The owner share is also
-/// capped well below the two pools, so "agents and holders share the bulk equally" is
-/// a property of the bytecode, not a promise anyone can edit.
+/// capped at 20%, so the two pools always take the majority and always take it in
+/// equal halves. "Agents and holders share the rest equally" is a property of the
+/// bytecode, not a promise anyone can edit.
 ///
 /// The Bankr creator fee is claimed to a wallet and forwarded here (or, if Bankr
 /// permits a contract as the fee recipient, this address is set directly). Either
@@ -32,7 +33,7 @@ contract FeeSplitter is ReentrancyGuard {
     /// Owner fee recipient (the project owner). May be the zero address only when the
     /// owner share is zero.
     address public immutable ownerRecipient;
-    /// Owner share of each distribution, in basis points. 15 = 0.15% at launch.
+    /// Owner share of each distribution, in basis points. 1500 = 15% at launch.
     uint256 public immutable ownerFeeBps;
 
     event Distributed(

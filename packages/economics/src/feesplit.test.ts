@@ -6,11 +6,11 @@ describe('splitFee', () => {
     expect(splitFee(100n, 0n)).toEqual({ owner: 0n, agent: 50n, holder: 50n });
   });
 
-  it('takes 0.15% off the top then splits the rest evenly', () => {
-    expect(splitFee(100_000_000_000_000_000_000n, 15n)).toEqual({
-      owner: 150_000_000_000_000_000n, // 0.15e18
-      agent: 49_925_000_000_000_000_000n, // 49.925e18
-      holder: 49_925_000_000_000_000_000n,
+  it('takes 15% off the top then splits the rest evenly', () => {
+    expect(splitFee(100_000_000_000_000_000_000n, 1500n)).toEqual({
+      owner: 15_000_000_000_000_000_000n, // 15e18
+      agent: 42_500_000_000_000_000_000n, // 42.5e18
+      holder: 42_500_000_000_000_000_000n,
     });
   });
 
@@ -20,13 +20,13 @@ describe('splitFee', () => {
 
   it('always sums back to the input', () => {
     for (const n of [1n, 2n, 999n, 1_000_000_000_000_000_001n]) {
-      const s = splitFee(n, 15n);
+      const s = splitFee(n, 1500n);
       expect(s.owner + s.agent + s.holder).toBe(n);
     }
   });
 
   it('keeps agents and holders equal on an even remainder', () => {
-    const s = splitFee(1_000_000n, 15n);
+    const s = splitFee(1_000_000n, 1500n);
     expect(s.agent).toBe(s.holder);
   });
 
