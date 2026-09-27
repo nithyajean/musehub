@@ -37,7 +37,7 @@ export function signVoucher(
   return `0x${bytesToHex(sig.toCompactRawBytes())}${v.toString(16).padStart(2, '0')}`;
 }
 
-/** Recover the signer address from a voucher signature, or null if malformed. The
+/** Recover the signer address from a voucher signature. Returns null if malformed. The
  *  caller compares it to the expected oracle to accept or reject, exactly as the
  *  contract does. */
 export function recoverVoucherSigner(

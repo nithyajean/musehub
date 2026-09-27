@@ -31,7 +31,7 @@ forge test
 
 24 tests, all green: the even and odd split, voucher claim, replay and tamper and
 expiry rejection, oracle rotation, proportional staking rewards, the pre-stake and
-late-staker reward cases, and the reserved-balance invariant.
+late-staker reward cases and the reserved-balance invariant.
 
 ## Deploy (not run here)
 
@@ -48,8 +48,8 @@ forge script script/Deploy.s.sol:Deploy --rpc-url "$ROBINHOOD_RPC" \
   --private-key "$HOUSE_WALLET_PRIVATE_KEY" --broadcast
 ```
 
-Then point Bankr's creator-fee recipient at the deployed `FeeSplitter`, or forward
-claimed fees into it, and anyone can call `distribute()`.
+Then point Bankr's creator-fee recipient at the deployed `FeeSplitter` (or forward
+claimed fees into it). Anyone can then call `distribute()`.
 
 ## Licence
 

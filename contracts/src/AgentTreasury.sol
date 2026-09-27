@@ -10,8 +10,8 @@ import {IERC20, SafeTransferLib, ReentrancyGuard, Owned} from "./lib/Shared.sol"
 /// deadline); the agent presents it here and the contract releases funds only if the
 /// signature is the oracle's and the nonce is unspent.
 ///
-/// The contract never trusts the forge with custody. Funds live here; the forge can
-/// only authorize a payout, never move one itself, and every voucher is single-use.
+/// The contract never trusts the forge with custody. Funds live here and the forge
+/// can only authorize a payout, never move one itself. Every voucher is single-use.
 /// The owner can rotate the oracle key (key compromise) but cannot touch the quote
 /// asset, so the agent pool cannot be drained by the operator.
 contract AgentTreasury is ReentrancyGuard, Owned {

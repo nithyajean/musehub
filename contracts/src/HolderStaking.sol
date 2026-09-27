@@ -9,7 +9,7 @@ import {IERC20, SafeTransferLib, ReentrancyGuard} from "./lib/Shared.sol";
 /// schedule and nothing is minted, so the yield cannot outrun what trading earned.
 ///
 /// The reward source is trustless. FeeSplitter (or anyone) transfers the quote asset
-/// in, and `sync()` rolls the new balance into the per-share accumulator. Because the
+/// in. `sync()` then rolls the new balance into the per-share accumulator. Because the
 /// reward asset and the staked asset are different tokens, the contract can tell a
 /// fresh fee drip from staked principal by balance alone, with no privileged notifier.
 ///

@@ -15,7 +15,7 @@ interface IERC20 {
 
 /// Wraps transfer/transferFrom so a token that returns false (or returns nothing,
 /// which many real tokens do) is handled the same way: any non-empty return must
-/// decode to true, and an empty return is treated as success. Reverts otherwise.
+/// decode to true. An empty return is treated as success. Reverts otherwise.
 library SafeTransferLib {
     function safeTransfer(IERC20 token, address to, uint256 amount) internal {
         _call(address(token), abi.encodeWithSelector(token.transfer.selector, to, amount));
