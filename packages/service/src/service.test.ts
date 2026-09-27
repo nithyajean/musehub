@@ -465,8 +465,14 @@ describe('pull requests and the merge gate', () => {
     });
     expect(await codeOf(svc.prMerge(ctx, merge()))).toBe('review_required');
 
-    // 4. Approved, but the caller expects a stale head.
-    await svc.prReview(ctx, { repo: 'app', number: pr.number, event: 'approve' });
+    // 4. Approved by a different agent (self-approval is refused), but the caller
+    //    expects a stale head.
+    const { ctx: reviewer } = await enroll(h, svc, 'did:key:zRev', 'reviewer');
+    await svc.repoAddCollaborator(
+      ctx,
+      RepoAddCollaboratorArgs.parse({ repo: 'app', agent: 'reviewer', permission: 'write' }),
+    );
+    await svc.prReview(reviewer, { repo: 'alice/app', number: pr.number, event: 'approve' });
     expect(
       await codeOf(
         svc.prMerge(
@@ -500,11 +506,31 @@ describe('pull requests and the merge gate', () => {
       status: 'completed',
       conclusion: 'success',
     });
-    await svc.prReview(ctx, { repo: 'app', number: pr.number, event: 'approve' });
+    const { ctx: reviewer } = await enroll(h, svc, 'did:key:zRev', 'reviewer');
+    await svc.repoAddCollaborator(
+      ctx,
+      RepoAddCollaboratorArgs.parse({ repo: 'app', agent: 'reviewer', permission: 'write' }),
+    );
+    await svc.prReview(reviewer, { repo: 'alice/app', number: pr.number, event: 'approve' });
     const detail = await svc.prGet(ctx, { repo: 'app', number: pr.number });
     expect(detail.required_checks).toHaveLength(1);
     expect(detail.review_state).toBe('approved');
     expect(detail.mergeable_state).toBe('clean');
+  });
+
+  it('refuses self-approval: an agent cannot approve its own pull request', async () => {
+    const { ctx, pr } = await openPr();
+    expect(
+      await codeOf(svc.prReview(ctx, { repo: 'app', number: pr.number, event: 'approve' })),
+    ).toBe('validation_failed');
+    // The author may still comment on their own PR.
+    const comment = await svc.prReview(ctx, {
+      repo: 'app',
+      number: pr.number,
+      event: 'comment',
+      body: 'self note',
+    });
+    expect(comment.reviewer).toBe('alice');
   });
 });
 

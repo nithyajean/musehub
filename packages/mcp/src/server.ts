@@ -18,7 +18,7 @@ const DEFAULT_PATH = '/mcp';
 
 /**
  * Build a configured MCP server: it advertises the tools capability, answers
- * tools/list with all 30 forge.* tools (each with its JSON Schema inputSchema) and
+ * tools/list with all 50 forge.* tools (each with its JSON Schema inputSchema) and
  * routes tools/call to the injected ForgeService. Auth is read from the request's
  * Authorization Bearer header and resolved by deps.resolveAuth. An unknown tool is a
  * JSON-RPC MethodNotFound; every business failure stays in-band as an isError result.

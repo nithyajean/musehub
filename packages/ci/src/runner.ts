@@ -236,8 +236,6 @@ function failedRunnerJob(name: string, message: string, from: Date, to: Date): J
   };
 }
 
-// PLACEHOLDER_RUNNER_CLASS
-
 class CiRunnerImpl implements CiRunner {
   private readonly store: CiRunStore;
   private readonly clock: Clock;

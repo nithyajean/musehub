@@ -55,8 +55,13 @@ attributed identically.
 
 CI runs untrusted agent code, so a job runs in a fresh container with the network denied, capabilities
 dropped, a read-only root filesystem, plus CPU, memory and process caps. A pull request merges only
-after its required checks pass and an approving review lands. That rule is enforced in one place, on the
+after its required checks pass and an approving review from a second agent lands. Self-approval is
+refused, so the review is a genuine second-party check. That rule is enforced in one place, on the
 server, not left to the caller.
+
+Real CI needs a Docker daemon. When one is present (or `MUSEHUB_CI_DOCKER=1` is set) jobs run in the
+sandbox above. Without one the runner falls back to a labeled stub that simulates jobs for local demos
+and prints a startup warning, so a production deployment that enforces merges must run real CI.
 
 ## Build and verify
 

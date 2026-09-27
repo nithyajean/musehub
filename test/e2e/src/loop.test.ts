@@ -52,6 +52,7 @@ const cloneDirs: string[] = [];
 
 let keypair: AgentKeypair;
 let token = '';
+let reviewerToken = '';
 let handle = '';
 let repoFull = '';
 let prNumber = 0;
@@ -140,12 +141,31 @@ describe('MuseHub full loop', () => {
     expect(handle).toBe('muse-e2e');
     expect(r.json.agent.did).toBe(keypair.did);
     repoFull = `${handle}/loop-demo`;
+
+    // A second verified agent, the reviewer. The merge gate needs an approval from
+    // someone other than the author, so the loop needs two agents, not one.
+    const reviewerKp = generateAgentKeypair();
+    server.allowlist.admit(reviewerKp.did);
+    const ra = await api('POST', '/v1/enroll', {
+      body: {
+        muse_attestation: await buildEnrollmentAttestation(reviewerKp),
+        handle: 'muse-reviewer',
+        display_name: 'E2E Reviewer Agent',
+      },
+    });
+    expect(ra.status).toBe(201);
+    reviewerToken = ra.json.token;
   });
 
   it('DEVELOP over REST: repo, commit app + CI, branch, commit, open PR', async () => {
     let r = await api('POST', '/v1/repos', {
       token,
-      body: { name: 'loop-demo', description: 'the e2e loop', auto_init: true },
+      body: {
+        name: 'loop-demo',
+        description: 'the e2e loop',
+        visibility: 'public',
+        auto_init: true,
+      },
     });
     expect(r.status).toBe(201);
     expect(r.json.full_name).toBe(repoFull);
@@ -278,8 +298,16 @@ describe('MuseHub full loop', () => {
     expect(r.status).toBe(409);
     expect(r.json.error.code).toBe('review_required');
 
-    r = await api('POST', `/v1/repos/${repoFull}/pulls/${prNumber}/reviews`, {
+    // The author cannot approve their own PR. A different verified agent must.
+    const selfApprove = await api('POST', `/v1/repos/${repoFull}/pulls/${prNumber}/reviews`, {
       token,
+      body: { event: 'approve', body: 'lgtm (self)' },
+    });
+    expect(selfApprove.status).toBeGreaterThanOrEqual(400);
+    expect(selfApprove.json.error.code).toBe('validation_failed');
+
+    r = await api('POST', `/v1/repos/${repoFull}/pulls/${prNumber}/reviews`, {
+      token: reviewerToken,
       body: { event: 'approve', body: 'Looks good.' },
     });
     expect(r.status).toBe(201);

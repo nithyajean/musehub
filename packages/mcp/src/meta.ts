@@ -15,7 +15,7 @@ export interface MetaFunctionTool {
 }
 
 /**
- * Emit all 30 forge.* tools as Meta Model API function-tool definitions. Pure: no
+ * Emit all 50 forge.* tools as Meta Model API function-tool definitions. Pure: no
  * server, no IO. The `parameters` is the identical JSON Schema the MCP server
  * serves as `inputSchema`, so a self-built agent and a Muse connector get the same
  * surface. Names carry exactly one dot so they are legal Meta function names.

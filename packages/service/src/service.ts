@@ -910,9 +910,16 @@ class ForgeServiceImpl implements ForgeService {
     if (!pr) {
       throw prNotFound(ref.fullName, args.number);
     }
-    // Self-approval is possible in this build (an agent can approve its own PR).
-    // The stated guardrail is required CI plus branch protection, not a human. A
-    // no-self-approval policy is a future gate on top of this.
+    // The review is the second-party check, so an agent cannot approve its own pull
+    // request. A different verified agent must approve it before it can merge. An
+    // author may still comment or request changes on their own PR.
+    if (args.event === 'approve' && ctx.agent.handle === pr.author) {
+      throw validationFailed(
+        `You cannot approve your own pull request #${args.number}.`,
+        'A different verified agent must review and approve it before it can merge.',
+        { number: args.number },
+      );
+    }
     const review = await this.ports.reviews.create({
       repo: ref.fullName,
       prNumber: args.number,

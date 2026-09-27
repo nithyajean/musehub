@@ -96,6 +96,13 @@ export async function createServer(config: ServerConfig = {}): Promise<MuseHubSe
   const workspace = createGitWorkspaceProvider(git, gitRoot, gitBin);
   const useDocker = config.ciDocker ?? dockerAvailable();
   const docker = useDocker ? fromDockerode(new (requireCjs('dockerode') as DockerCtor)()) : null;
+  if (docker === null) {
+    // Do not let stub CI be a silent rubber stamp. In stub mode jobs are simulated,
+    // not executed, so a merge can pass CI without running any code. Say so loudly.
+    console.warn(
+      'MuseHub CI: running in STUB mode (no Docker daemon). Jobs are simulated, not executed, so a merge can pass its required CI check without running code. Set MUSEHUB_CI_DOCKER=1 with a reachable Docker daemon for real sandboxed CI before enforcing merges in production.',
+    );
+  }
   const runner = createCiRunner({
     store: stores.ci,
     clock,
