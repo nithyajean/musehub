@@ -20,7 +20,7 @@ copyright notice alongside them. Revisit this section at that point.
 | --- | --- | --- |
 | Bricolage Grotesque | SIL Open Font License 1.1 | VERIFIED upstream |
 | JetBrains Mono | SIL Open Font License 1.1 | VERIFIED upstream |
-| Instrument Sans | SIL Open Font License 1.1 (expected) | UNVERIFIED, see below |
+| Instrument Sans | SIL Open Font License 1.1 | VERIFIED upstream |
 
 Verified copyright lines, read from the upstream projects:
 
@@ -32,6 +32,10 @@ Verified copyright lines, read from the upstream projects:
 > (https://github.com/JetBrains/JetBrainsMono)
 > This Font Software is licensed under the SIL Open Font License
 
+> Copyright 2022 The Instrument Sans Project Authors
+> (https://github.com/Instrument/instrument-sans)
+> This Font Software is licensed under the SIL Open Font License, Version 1.1.
+
 The OFL clause that would bind a redistributor, quoted:
 
 > contains the above copyright notice and this license. These can be included
@@ -39,11 +43,11 @@ The OFL clause that would bind a redistributor, quoted:
 > machine-readable metadata fields within text or binary files as long as those
 > fields can be easily viewed by the user.
 
-**Open item.** Instrument Sans is served by Google Fonts under the same OFL
-terms by every indication, but the upstream licence file did not resolve at the
-path checked, so its clause is not yet quoted here. Confirm it against the
-project's own repository before this repository is made public. Until then the
-claim above is marked unverified rather than asserted.
+**Instrument Sans, verified 2026-09-27.** The upstream OFL.txt lives on the `master`
+branch of `github.com/Instrument/instrument-sans` (not `main`, which is why an earlier
+path check came back empty). Its copyright line and the OFL 1.1 grant are quoted above.
+Google Fonts serves the family (https://fonts.google.com/specimen/Instrument+Sans), so
+linking the CDN is use rather than redistribution. The notice duty does not attach here.
 
 **Privacy and availability note**, separate from licensing: linking the Google
 CDN means every visitor's browser contacts Google. The typography degrades

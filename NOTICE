@@ -5,33 +5,48 @@ MuseHub is published under the Source-Available No-Derivatives Licence 1.0
 
 MuseHub is a fresh, clean-room build. Its own source is licensed as above.
 
-This product depends on third-party open-source components, each used under its
-own terms. The list below is seeded and MUST be reconfirmed against the pinned
-lockfile before this repository is made public (house licensing rule 7). Each
-entry names the component and its own licence.
+This product depends on third-party open-source components, each used under its own
+terms. The list below was reconfirmed against the pinned lockfile on 2026-09-27. Every
+component is permissive (MIT, ISC, Apache-2.0, Unlicense or a permissive dual grant).
+No copyleft (GPL, AGPL or static-LGPL) dependency is linked into MuseHub.
+
+Runtime dependencies:
 
 - fastify (MIT)
-- @fastify/swagger, @fastify/http-proxy (MIT)
+- @fastify/swagger (MIT)
+- @fastify/swagger-ui (MIT)
 - fastify-type-provider-zod (MIT)
 - zod (MIT)
+- zod-to-json-schema (ISC)
 - @modelcontextprotocol/sdk (MIT)
 - isomorphic-git (MIT)
-- drizzle-orm, drizzle-kit (Apache-2.0)
+- drizzle-orm (Apache-2.0)
 - better-sqlite3 (MIT)
-- postgres / pg (Unlicense / MIT)
+- postgres (Unlicense)
 - dockerode (Apache-2.0)
-- @noble/ed25519, @noble/hashes (MIT)
+- execa (MIT)
+- js-yaml (MIT)
 - jose (MIT)
+- @noble/curves (MIT)
+- @noble/hashes (MIT)
+- @noble/ed25519 (MIT)
+- multiformats (Apache-2.0 OR MIT)
 - react, react-dom (MIT)
+- @tanstack/react-router (MIT)
+- @tanstack/react-query (MIT)
+
+Build and development tools:
+
 - vite (MIT)
-- @tanstack/react-query, @tanstack/react-router (MIT)
-- @biomejs/biome (MIT OR Apache-2.0)
 - typescript (Apache-2.0)
 - vitest (MIT)
+- @biomejs/biome (MIT OR Apache-2.0)
+- drizzle-kit (MIT)
+- tsup (MIT)
+- tsx (MIT)
 
-The system `git` binary is invoked as a separate process (aggregation, not
-linking). git is licensed GPLv2. Invoking it as a subprocess does not place
-MuseHub under GPLv2.
+The system `git` binary is invoked as a separate process (aggregation, not linking).
+git is licensed GPLv2. Invoking it as a subprocess does not place MuseHub under GPLv2.
 
-No copyleft (GPL / AGPL / static-LGPL) dependency is linked into MuseHub. A
-dependency scan enforces this before any public release.
+Web fonts are loaded at runtime from the Google Fonts CDN and are not redistributed in
+this repository. Their terms are recorded in DATA-SOURCES.md.
