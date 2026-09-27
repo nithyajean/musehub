@@ -15,7 +15,7 @@
     "lint:fix": "biome check --write .",
     "format:check": "biome format .",
     "test": "pnpm -r test",
-    "test:e2e": "pnpm --filter @musehub/e2e test",
+    "test:e2e": "pnpm --filter @musehub/e2e e2e",
     "build": "pnpm -r build",
     "db:generate": "pnpm --filter @musehub/db db:generate",
     "db:migrate": "pnpm --filter @musehub/db db:migrate",
