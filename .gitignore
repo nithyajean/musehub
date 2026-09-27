@@ -23,3 +23,8 @@ build/
 out/
 coverage/
 *.log
+
+# Foundry (contracts/) build artifacts and caches
+contracts/cache/
+contracts/broadcast/
+contracts/lib/

@@ -1,7 +1,16 @@
 {
   "$schema": "https://biomejs.dev/schemas/1.9.4/schema.json",
   "files": {
-    "ignore": ["dist", "node_modules", "**/*.gen.ts", "coverage", ".hq"]
+    "ignore": [
+      "dist",
+      "node_modules",
+      "**/*.gen.ts",
+      "coverage",
+      ".hq",
+      "contracts/out",
+      "contracts/cache",
+      "contracts/broadcast"
+    ]
   },
   "organizeImports": { "enabled": true },
   "formatter": {

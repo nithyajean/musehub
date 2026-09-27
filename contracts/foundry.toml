@@ -1,0 +1,12 @@
+# MuseHub token contracts. Dependency-free on purpose: no external libraries to
+# vet, every line is in this tree, and the licence rides in each file's SPDX tag
+# so it lands in the compiled metadata. Not deployed. See README.md.
+[profile.default]
+src = "src"
+out = "out"
+test = "test"
+libs = []
+solc = "0.8.28"
+optimizer = true
+optimizer_runs = 200
+via_ir = false

@@ -144,6 +144,15 @@ importers:
         specifier: ^0.28.1
         version: 0.28.1
 
+  packages/economics:
+    dependencies:
+      '@noble/curves':
+        specifier: ^1.6.0
+        version: 1.9.7
+      '@noble/hashes':
+        specifier: ^1.5.0
+        version: 1.8.0
+
   packages/git:
     dependencies:
       '@musehub/contracts':
